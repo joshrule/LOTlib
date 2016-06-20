@@ -26,26 +26,21 @@ from LOTlib.Grammar import Grammar
 
 grammar = Grammar(start='WORLD-STATE')
 
-grammar.add_rule('WORLD-STATE', '%s.stack()',                     ['WORLD-STATE'],           1.0)
-grammar.add_rule('WORLD-STATE', '%s.left_grab(%s)',               ['WORLD-STATE', 'OBJECT'], 1.0)
-grammar.add_rule('WORLD-STATE', '%s.right_grab(%s)',              ['WORLD-STATE', 'OBJECT'], 1.0)
-grammar.add_rule('WORLD-STATE', '%s.left_drop()',                 ['WORLD-STATE'],           1.0)
-grammar.add_rule('WORLD-STATE', '%s.right_drop()',                ['WORLD-STATE'],           1.0)
-
-grammar.add_rule('WORLD-STATE', 'ws',                             None,                      10.0)
+grammar.add_rule('WORLD-STATE', 'ws',                             None,                     10.0)
 grammar.add_rule('WORLD-STATE', 'if_',                            ['BOOL', 'WORLD-STATE', 'WORLD-STATE'], 1.0)
-grammar.add_rule('WORLD-STATE', 'recurse_',                       ['WORLD-STATE'],           1.0)
+grammar.add_rule('WORLD-STATE', 'recurse_',                       ['WORLD-STATE'],          1.0)
+grammar.add_rule('WORLD-STATE', '%s.stack()',                     ['WORLD-STATE'],          1.0)
+grammar.add_rule('WORLD-STATE', '%s.left_grab(%s)',               ['WORLD-STATE', 'STACK'], 1.0)
+grammar.add_rule('WORLD-STATE', '%s.right_grab(%s)',              ['WORLD-STATE', 'STACK'], 1.0)
+grammar.add_rule('WORLD-STATE', '%s.left_drop()',                 ['WORLD-STATE'],          1.0)
+grammar.add_rule('WORLD-STATE', '%s.right_drop()',                ['WORLD-STATE'],          1.0)
 
-grammar.add_rule('OBJECT',      '%s.choose_random()',             ['WORLD-STATE'],           1.0)
-grammar.add_rule('OBJECT',      '%s.left_hand',                   ['WORLD-STATE'],           1.0)
-grammar.add_rule('OBJECT',      '%s.right_hand',                  ['WORLD-STATE'],           1.0)
+grammar.add_rule('STACK',      '%s.choose_random()',              ['WORLD-STATE'],          1.0)
+grammar.add_rule('STACK',      '%s.left_hand',                    ['WORLD-STATE'],          1.0)
+grammar.add_rule('STACK',      '%s.right_hand',                   ['WORLD-STATE'],          1.0)
 
-grammar.add_rule('SIZE',        'getattr(%s,"height",None)',      ['OBJECT'],                1.0) # number of cups in stack
-grammar.add_rule('SIZE',        'getattr(%s,"top_size",None)',    ['OBJECT'],                1.0)
-grammar.add_rule('SIZE',        'getattr(%s,"bottom_size",None)', ['OBJECT'],                1.0)
-
-grammar.add_rule('BOOL',        '(%s > %s)',                      ['SIZE', 'SIZE'],          1.0)
-grammar.add_rule('BOOL',        '(%s == %s)',                     ['SIZE', 'SIZE'],          1.0)
+grammar.add_rule('BOOL',        'tight_fit(%s,%s)',               ['STACK', 'STACK'],       1.0)
+grammar.add_rule('BOOL',        'loose_fit(%s,%s)',               ['STACK', 'STACK'],       1.0)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Data Structures
@@ -53,8 +48,24 @@ grammar.add_rule('BOOL',        '(%s == %s)',                     ['SIZE', 'SIZE
 
 class Stack(object):
     """Stacks have a top size, bottom size, and height"""
-    def __init__(self, top_size=0, bottom_size=1, height=1):
+    def __init__(self, top_size=1, bottom_size=1, height=1):
         self.__dict__.update(locals())
+
+from LOTlib.Eval import primitive
+
+@primitive
+def tight_fit(x,y):
+    if x is None or y is None:
+        raise WorldException
+    else:
+        return y.bottom_size-x.top_size == 1
+
+@primitive
+def loose_fit(x,y):
+    if x is None or y is None:
+        raise WorldException
+    else:
+        return y.bottom_size-x.top_size >  1
 
 class WorldException(Exception):
     pass
@@ -66,7 +77,7 @@ class WorldState(object):
     """
 
     def __init__(self):
-        self.table =  set([Stack(top_size=n, bottom_size=n+1, height=1) for n in xrange(10)])
+        self.table =  set([Stack(top_size=n, bottom_size=n, height=1) for n in xrange(10)])
         self.left_hand  = None
         self.right_hand = None
 
@@ -109,7 +120,7 @@ class WorldState(object):
         """ Put right hand on top of the left """
         l, r = self.left_hand, self.right_hand
 
-        if type(l) is not Stack or type(r) is not Stack or (r.bottom_size > l.top_size):  # can't put something on top of itself:
+        if type(l) is not Stack or type(r) is not Stack or (r.bottom_size >= l.top_size):  # can't put something on top of itself:
             raise WorldException
         else:
             c = Stack(top_size=r.top_size, bottom_size=l.bottom_size, height=l.height + r.height)
