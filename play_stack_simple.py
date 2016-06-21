@@ -5,16 +5,9 @@
 # A Desired Program:
 #
 # recurse_(
-#   if(
-#     tight_fit(
-#       ws.left_grab(ws.choose_random())
-#         .left_hand
-#         .bottom_size,
-#       ws.right_grab(ws.choose_random())
-#         .right_hand),
-#         .top_size),
-#     ws.stack().left_drop(),
-#     ws.left_drop().right_drop()))
+#   if(ws.choose_random().left_grab().choose_random().right_grab().tight_fit(),
+#      ws.stack().left_drop(),
+#      ws.left_drop().right_drop()))
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -22,24 +15,17 @@ from LOTlib.Grammar import Grammar
 
 grammar = Grammar(start='WORLD-STATE')
 
-grammar.add_rule('WORLD-STATE', 'ws',                             None,                     10.0)
-grammar.add_rule('WORLD-STATE', 'if_',                            ['BOOL', 'WORLD-STATE', 'WORLD-STATE'], 1.0)
-grammar.add_rule('WORLD-STATE', 'recurse_',                       ['WORLD-STATE'],          1.0)
-grammar.add_rule('WORLD-STATE', '%s.stack()',                     ['WORLD-STATE'],          1.0)
-grammar.add_rule('WORLD-STATE', '%s.left_grab(%s)',               ['WORLD-STATE', 'STACK'], 1.0)
-grammar.add_rule('WORLD-STATE', '%s.right_grab(%s)',              ['WORLD-STATE', 'STACK'], 1.0)
-grammar.add_rule('WORLD-STATE', '%s.left_drop()',                 ['WORLD-STATE'],          1.0)
-grammar.add_rule('WORLD-STATE', '%s.right_drop()',                ['WORLD-STATE'],          1.0)
+grammar.add_rule('WORLD-STATE', 'ws',                 None,                                   5.0)
+grammar.add_rule('WORLD-STATE', 'if_',                ['BOOL', 'WORLD-STATE', 'WORLD-STATE'], 1.0)
+grammar.add_rule('WORLD-STATE', 'recurse_',           ['WORLD-STATE'],                        1.0)
+grammar.add_rule('WORLD-STATE', '%s.stack()',         ['WORLD-STATE'],                        1.0)
+grammar.add_rule('WORLD-STATE', '%s.left_grab()',     ['WORLD-STATE'],                        1.0)
+grammar.add_rule('WORLD-STATE', '%s.right_grab()',    ['WORLD-STATE'],                        1.0)
+grammar.add_rule('WORLD-STATE', '%s.left_drop()',     ['WORLD-STATE'],                        1.0)
+grammar.add_rule('WORLD-STATE', '%s.right_drop()',    ['WORLD-STATE'],                        1.0)
+grammar.add_rule('WORLD-STATE', '%s.choose_random()', ['WORLD-STATE'],                        1.0)
 
-grammar.add_rule('STACK',       '%s.choose_random()',             ['WORLD-STATE'],          1.0)
-grammar.add_rule('STACK',       'getattr(%s,"left_hand",None)',   ['WORLD-STATE'],          1.0)
-grammar.add_rule('STACK',       'getattr(%s,"right_hand",None)',  ['WORLD-STATE'],          1.0)
-
-grammar.add_rule('SIZE',        'getattr(%s,"top_size",None)',    ['STACK'],                1.0)
-grammar.add_rule('SIZE',        'getattr(%s,"bottom_size",None)', ['STACK'],                1.0)
-
-grammar.add_rule('BOOL',        'tight_fit(%s,%s)',               ['SIZE', 'SIZE'],         1.0)
-grammar.add_rule('BOOL',        'loose_fit(%s,%s)',               ['SIZE', 'SIZE'],         1.0)
+grammar.add_rule('BOOL',        '%s.tight_fit()',     ['WORLD-STATE'],                        1.0)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Data Structures
@@ -49,22 +35,6 @@ class Stack(object):
     """Stacks have a top size, bottom size, and height"""
     def __init__(self, top_size=1, bottom_size=1, height=1):
         self.__dict__.update(locals())
-
-from LOTlib.Eval import primitive
-
-@primitive
-def tight_fit(x,y):
-    if x is None or y is None:
-        raise WorldException
-    else:
-        return x-y == 1
-
-@primitive
-def loose_fit(x,y):
-    if x is None or y is None:
-        raise WorldException
-    else:
-        return x-y >  1
 
 class WorldException(Exception):
     pass
@@ -79,22 +49,29 @@ class WorldState(object):
         self.table =  set([Stack(top_size=n, bottom_size=n, height=1) for n in xrange(10)])
         self.left_hand  = None
         self.right_hand = None
+        self.attending  = None
 
     def __str__(self):
-        return '[%s, %s, %s]'  % (self.left_hand, self.right_hand, str([x.height for x in self.table]))
+        return '[%s, %s, %s, %s]'  % (self.left_hand, self.right_hand, self.attending, str([x.height for x in self.table]))
 
-    def left_grab(self, x):
-        if x in self.table and x is not None and self.left_hand is None:
-            self.left_hand = x
-            self.table.remove(x)
+    def left_grab(self):
+        if (self.attending is not None   and
+            self.attending in self.table and
+            self.left_hand is None):
+            self.left_hand = self.attending
+            self.table.remove(self.left_hand)
+            self.attending = None
         else:
             raise WorldException
         return self
 
-    def right_grab(self, x):
-        if x in self.table and x is not None and self.right_hand is None:
-            self.right_hand = x
-            self.table.remove(x)
+    def right_grab(self):
+        if (self.attending is not None   and
+            self.attending in self.table and
+            self.right_hand is None):
+            self.right_hand = self.attending
+            self.table.remove(self.right_hand)
+            self.attending = None
         else:
             raise WorldException
         return self
@@ -128,9 +105,18 @@ class WorldState(object):
 
         return self
 
+    # returns a bool, not a world-state
     def choose_random(self):
         if len(self.table) >= 1:
-            return sample1(self.table)
+            self.attending = sample1(self.table)
+        else:
+            raise WorldException
+        return self
+
+    def tight_fit(self):
+        l,r = self.left_hand,self.right_hand
+        if l and r:
+            return (l.top_size - r.bottom_size == 1)
         else:
             raise WorldException
 
