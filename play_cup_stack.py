@@ -6,17 +6,18 @@ from LOTlib.Grammar import Grammar
 
 grammar = Grammar(start='WORLD-STATE')
 
+grammar.add_rule('WORLD-STATE', 'ws',                   None,                      10.0)
+grammar.add_rule('WORLD-STATE', 'if_',                  ['BOOL', 'WORLD-STATE', 'WORLD-STATE'], 1.0)
+grammar.add_rule('WORLD-STATE', 'recurse_',             ['WORLD-STATE'],           1.0)
 grammar.add_rule('WORLD-STATE', '%s.stack()',           ['WORLD-STATE'],           1.0)
 grammar.add_rule('WORLD-STATE', '%s.left_grab(%s)',     ['WORLD-STATE', 'OBJECT'], 1.0)
 grammar.add_rule('WORLD-STATE', '%s.right_grab(%s)',    ['WORLD-STATE', 'OBJECT'], 1.0)
 grammar.add_rule('WORLD-STATE', '%s.left_drop()',       ['WORLD-STATE'],           1.0)
 grammar.add_rule('WORLD-STATE', '%s.right_drop()',      ['WORLD-STATE'],           1.0)
-grammar.add_rule('WORLD-STATE', '%s.left_stack()',       ['WORLD-STATE'],           1.0) # make left hand a stack
-grammar.add_rule('WORLD-STATE', '%s.right_stack()',      ['WORLD-STATE'],           1.0) # make right hand a stack
-
-grammar.add_rule('WORLD-STATE', 'ws',                   None,                      10.0)
-grammar.add_rule('WORLD-STATE', 'if_',                  ['BOOL', 'WORLD-STATE', 'WORLD-STATE'], 1.0)
-grammar.add_rule('WORLD-STATE', 'recurse_',             ['WORLD-STATE'],           1.0)
+grammar.add_rule('WORLD-STATE', '%s.left_stack()',       ['WORLD-STATE'],          1.0) # make left hand a stack
+grammar.add_rule('WORLD-STATE', '%s.right_stack()',      ['WORLD-STATE'],          1.0) # make right hand a stack
+grammar.add_rule('WORLD-STATE', '%s.left_unstack()',       ['WORLD-STATE'],        1.0) # make left hand all cups
+grammar.add_rule('WORLD-STATE', '%s.right_unstack()',      ['WORLD-STATE'],        1.0) # make right hand all cups
 
 grammar.add_rule('OBJECT',      '%s.choose_random()',   ['WORLD-STATE'],           5.0)
 grammar.add_rule('OBJECT',      '%s.the_left_hand()',   ['WORLD-STATE'],           1.0)
@@ -24,11 +25,11 @@ grammar.add_rule('OBJECT',      '%s.the_right_hand()',  ['WORLD-STATE'],        
 grammar.add_rule('OBJECT',      '%s.top(%s)',           ['WORLD-STATE','OBJECT'],  1.0)
 grammar.add_rule('OBJECT',      '%s.bottom(%s)',        ['WORLD-STATE','OBJECT'],  1.0)
 
-# these might fail if run on the wrong *kind* of object
 grammar.add_rule('SIZE',        'getattr(%s,"top_size",None)',    ['OBJECT'],                1.0)
 grammar.add_rule('SIZE',        'getattr(%s,"bottom_size",None)', ['OBJECT'],                1.0)
 grammar.add_rule('SIZE',        'getattr(%s,"size",None)',        ['OBJECT'],                1.0)
 
+grammar.add_rule('BOOL',        'is_stack(%s)',                   ['OBJECT'],               1.0)
 grammar.add_rule('BOOL',        'tight_fit(%s,%s)',               ['SIZE', 'SIZE'],         1.0)
 grammar.add_rule('BOOL',        'loose_fit(%s,%s)',               ['SIZE', 'SIZE'],         1.0)
 
@@ -36,17 +37,26 @@ grammar.add_rule('BOOL',        'loose_fit(%s,%s)',               ['SIZE', 'SIZE
 # Worlds & Cups
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-from copy import deepcopy
-
 class Cup(object):
     """cups have a top size and a bottom size (not a height)"""
-    def __init__(self, size=1, top=None, bottom=None):
+    def __init__(self, id=1, size=1, top=None, bottom=None):
         self.__dict__.update(locals())
 
 class Stack(object):
-    """stacks have a height and constituent cups."""
-    def __init__(self, height=0, top=None, bottom=None, top_size=0, bottom_size=0):
+    """stacks have a height and constituent parts. Rather than a list of
+    cups, it's a list of components, which could be stacks (i.e.
+    hierarchical nesting).
+
+    """
+
+    def __init__(self, id=0, height=0, parts={}, top=None, bottom=None, top_size=0, bottom_size=0):
         self.__dict__.update(locals())
+
+    def bottom_part(self):
+        return [v for v in self.parts.itervalues() if v.bottom is None][0]
+
+    def top_part(self):
+        return [v for v in self.parts.itervalues() if v.top    is None][0]
 
 from LOTlib.Eval import primitive
 
@@ -83,7 +93,7 @@ class WorldState(object):
     """
 
     def __init__(self):
-        self.table =  { n : Cup(size=n) for n in xrange(10) }
+        self.table =  { n : Cup(id=n,size=n) for n in xrange(10) }
         self.left_hand  = None
         self.right_hand = None
 
@@ -95,163 +105,185 @@ class WorldState(object):
         if self.left_hand is None:
             raise WorldException
         else:
-            return [k for k,v in self.left_hand.iteritems() if v.bottom is None][0]
+            return [v for v in self.left_hand.itervalues() if v.bottom is None][0]
 
     def the_right_hand(self):
         if self.right_hand is None:
             raise WorldException
         else:
-            return [k for k,v in self.right_hand.iteritems() if v.bottom is None][0]
+            return [v for v in self.right_hand.itervalues() if v.bottom is None][0]
 
+    def left_unstack(self):
+        if self.left_hand is None or len(self.left_hand) is not 1:
+            raise WorldException
+        k,s = self.left_hand.popitem()
+        if not is_stack(s):
+            raise WorldException
+        else:
+            self.left_hand = s.parts
+        return self
+
+    def right_unstack(self):
+        if self.right_hand is None or len(self.right_hand) is not 1:
+            raise WorldException
+        k,s = self.right_hand.popitem()
+        if not is_stack(s):
+            raise WorldException
+        else:
+            self.right_hand = s.parts
+        return self
+        
     def left_stack(self):
-        s = deepcopy(self)
-        # if empty
         if self.left_hand is None:
             raise WorldException
         else: # merge the things into a stack and return
-            height = 0
+            height = sum([1 if is_cup(v) else v.height for v in self.left_hand.itervalues()])
             bottom_size = 0
             top_size = 0
+            the_id = None
             for k,v in self.left_hand.iteritems():
-                height += 1 if type(v) is Cup else v.height
                 if v.bottom is None and type(v) is Cup:
                     bottom_size = v.size
+                    the_id = v.id
                 if v.bottom is None and type(v) is Stack:
                     bottom_size = v.bottom_size
+                    the_id = v.id
                 if v.top is None and type(v) is Cup:
                     top_size = v.size
                 if v.top is None and type(v) is Stack:
                     top_size = v.bottom_size
-            s.left_hand = { k : Stack(height=height,
-                                      bottom=None,
-                                      top=None,
-                                      bottom_size=bottom_size,
-                                      top_size=top_size) }
-            return s
+                        
+            self.left_hand = { the_id : Stack(id=the_id,
+                                              parts=self.left_hand,
+                                              height=height,
+                                              bottom=None,
+                                              top=None,
+                                              bottom_size=bottom_size,
+                                              top_size=top_size) }
+            return self
             
     def right_stack(self):
-        s = deepcopy(self)
-        # if empty
         if self.right_hand is None:
             raise WorldException
         else: # merge the things into a stack and return
-            height = 0
+            height = sum([1 if is_cup(v) else v.height for v in self.right_hand.itervalues()])
             bottom_size = 0
             top_size = 0
+            the_id = None
             for k,v in self.right_hand.iteritems():
-                height += 1 if type(v) is Cup else v.height
                 if v.bottom is None and type(v) is Cup:
                     bottom_size = v.size
+                    the_id = v.id
                 if v.bottom is None and type(v) is Stack:
                     bottom_size = v.bottom_size
+                    the_id = v.id
                 if v.top is None and type(v) is Cup:
                     top_size = v.size
                 if v.top is None and type(v) is Stack:
                     top_size = v.bottom_size
-            s.right_hand = { k : Stack(height=height,
-                                       bottom=None,
-                                       top=None,
-                                       bottom_size=bottom_size,
-                                       top_size=top_size) }
-            return s
+            self.right_hand = { the_id : Stack(id=the_id,
+                                               parts=self.right_hand,
+                                               height=height,
+                                               bottom=None,
+                                               top=None,
+                                               bottom_size=bottom_size,
+                                               top_size=top_size) }
+            return self
             
     def left_grab(self, x):
-        s = deepcopy(self)
-        if x in s.table and (type(s.table[x]) is Cup or type(s.table[x]) is Stack) and s.left_hand is None:
+        if x.id in self.table and (type(x) is Cup or type(x) is Stack) and self.left_hand is None:
 
             # add the object to your hand
-            s.left_hand = {x : s.table[x]}
+            self.left_hand = {x.id : x}
+
 
             # sever the attachment if needed
-            if s.left_hand[x].bottom:
-                s.table[s.left_hand[x].bottom].top = None
-                s.left_hand[x].bottom = None
+            if x.bottom:
+                self.table[x.bottom].top = None
+                self.left_hand[x.id].bottom = None
 
             # remove it from the table
-            del s.table[x]
+            del self.table[x.id]
 
             # add the things on top of it to your hand and remove them from the table
-            while s.left_hand[x].top is not None:
-                x = s.left_hand[x].top
-                s.left_hand[x] = s.table[x]
-                del s.table[x]
+            while x.top is not None:
+                x = self.table[x.top]
+                self.left_hand[x.id] = x
+                del self.table[x.id]
 
         else:
             raise WorldException
         
-        return s
+        return self
 
     def right_grab(self, x):
-        s = deepcopy(self)
-        if x in s.table and (type(s.table[x]) is Cup or type(s.table[x]) is Stack) and s.right_hand is None:
+        if x in self.table and (type(x) is Cup or type(x) is Stack) and self.right_hand is None:
             
             # add the object to your hand
-            s.right_hand = {x : s.table[x]}
+            self.right_hand = {x.id : x}
 
             # sever the attachment if needed
-            if s.right_hand[x].bottom:
-                s.table[s.right_hand[x].bottom].top = None
-                s.right_hand[x].bottom = None
+            if x.bottom:
+                self.table[x.bottom].top = None
+                self.right_hand[x.id].bottom = None
 
             # remove it from the table
-            del s.table[x]
+            del self.table[x.id]
 
             # add the things on top of it to your hand and remove them from the table
-            while s.right_hand[x].top is not None:
-                x = s.right_hand[x].top
-                s.right_hand[x] = s.table[x]
-                del s.table[x]
+            while x.top is not None:
+                x = self.table[x.top]
+                self.right_hand[x.id] = x
+                del self.table[x.id]
 
         else:
             raise WorldException
         
-        return s
+        return self
 
     def left_drop(self):
-        s = deepcopy(self)
-        if s.left_hand is not None:
-            s.table.update(s.left_hand)
-            s.left_hand = None
+        if self.left_hand is not None:
+            self.table.update(self.left_hand)
+            self.left_hand = None
         else:
             raise WorldException
-        return s
+        return self
 
     def right_drop(self):
-        s = deepcopy(self)
-        if s.right_hand is not None:
-            s.table.update(s.right_hand)
-            s.right_hand = None
+        if self.right_hand is not None:
+            self.table.update(self.right_hand)
+            self.right_hand = None
         else:
             raise WorldException
-        return s
+        return self
 
     def stack(self):
         """ Put right hand on top of the left """
-        s = deepcopy(self)
-        # get what you're holding
-        l, r = s.left_hand, s.right_hand
-
-        # you must be holding two things
-        if l and r:
-            top    = [k for k,v in l.iteritems() if not v.top   ][0]
-            bottom = [k for k,v in r.iteritems() if not v.bottom][0]
+        l, r = self.left_hand, self.right_hand
+        if l and r:         # you must be holding two things
+            top    = [k for k,v in l.iteritems() if v.top is None   ][0]
+            bottom = [k for k,v in r.iteritems() if v.bottom is None][0]
             top_size = l[top].size if type(l[top]) is Cup else l[top].top_size
             bottom_size = r[bottom].size if type(r[bottom]) is Cup else r[bottom].bottom_size
+            
             if (bottom_size <= top_size):
                 l[top].top = bottom
                 r[bottom].bottom = top
                 l.update(r)
-                s.left_hand = l
-                s.right_hand = None
-        
+                self.left_hand = l
+                self.right_hand = None
+
+            else:
+                raise WorldException
+                
         else:
             raise WorldException
         
-        return s
+        return self
 
     def choose_random(self):
         if len(self.table) >= 1:
-            return sample1(self.table.keys())
+            return sample1(self.table.values())
         else:
             raise WorldException
 
@@ -266,18 +298,16 @@ class WorldState(object):
             return None
         
     def top(self,x):
-        y = self.find(x)
-        if y is None or y.top is None:
+        if x.top is None:
             raise WorldException
         else:
-            return y.top
+            return self.find(x.top)
 
     def bottom(self,x):
-        y = self.find(x)
-        if y is None or y.bottom is None:
+        if x.bottom is None:
             raise WorldException
         else:
-            return y.bottom
+            return self.find(x.bottom)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Hypothesis

@@ -1,6 +1,20 @@
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Grammar
+#
+# A desired program:
+#
+# recurse_(
+#   if_(
+#     and_(
+#       tight_fit(
+#         getattr(ws.left_grab(ws.choose_random()).the_left_hand(),  "size",None),
+#         getattr(ws.right_grab(ws.choose_random()).the_right_hand(),"size",None))
+#       ws.the_left_hand().topP()
+#     ),
+#     ws.stack().left_drop(),
+#     ws.left_drop().right_drop()))
+#
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 from LOTlib.Grammar import Grammar
@@ -16,42 +30,61 @@ grammar.add_rule('WORLD-STATE', '%s.right_grab(%s)',    ['WORLD-STATE', 'CUP'], 
 grammar.add_rule('WORLD-STATE', '%s.left_drop()',       ['WORLD-STATE'],           1.0)
 grammar.add_rule('WORLD-STATE', '%s.right_drop()',      ['WORLD-STATE'],           1.0)
 
-grammar.add_rule('CUP',         '%s.choose_random()',   ['WORLD-STATE'],           5.0)
+grammar.add_rule('CUP',         '%s.choose_random()',   ['WORLD-STATE'],           1.0)
 grammar.add_rule('CUP',         '%s.the_left_hand()',   ['WORLD-STATE'],           1.0)
 grammar.add_rule('CUP',         '%s.the_right_hand()',  ['WORLD-STATE'],           1.0)
-grammar.add_rule('CUP',         '%s.top(%s)',           ['WORLD-STATE','CUP'],     1.0)
-grammar.add_rule('CUP',         '%s.bottom(%s)',        ['WORLD-STATE','CUP'],     1.0)
+#grammar.add_rule('CUP',         '%s.top(%s)',           ['WORLD-STATE','CUP'],     1.0)
+#grammar.add_rule('CUP',         '%s.bottom(%s)',        ['WORLD-STATE','CUP'],     1.0)
 
-grammar.add_rule('BOOL',        '%s.tight_fitP(%s,%s)', ['WORLD-STATE','CUP','CUP'],       1.0)
-grammar.add_rule('BOOL',        '%s.loose_fitP(%s,%s)', ['WORLD-STATE','CUP','CUP'],       1.0)
-grammar.add_rule('BOOL',        '%s.topP(%s)',          ['WORLD-STATE','CUP'],  1.0)
-grammar.add_rule('BOOL',        '%s.bottomP(%s)',       ['WORLD-STATE','CUP'],  1.0)
+grammar.add_rule('SIZE',        'getattr(%s,"size",None)', ['CUP'],                1.0)
+
+grammar.add_rule('BOOL',        'tight_fit(%s,%s)',    ['SIZE','SIZE'],        1.0)
+#grammar.add_rule('BOOL',        'loose_fit(%s,%s)',    ['SIZE','SIZE'],        1.0)
+grammar.add_rule('BOOL',        '%s.topP()',           ['CUP'],  1.0)
+#grammar.add_rule('BOOL',        '%s.bottomP()',        ['CUP'],  1.0)
+grammar.add_rule('BOOL',        'and_',                ['BOOL','BOOL'],  1.0)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Worlds & Cups
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-from copy import deepcopy
-
 class Cup(object):
-    """cups have a top size,a bottom size, and 2D coordinates)"""
-    def __init__(self, size=1, top=None, bottom=None):
+    """cups have a size, and be on top of or under another cup)"""
+    def __init__(self, id=0, size=1, top=None, bottom=None):
         self.__dict__.update(locals())
 
     def __str__(self):
-        return '(%s, t:%s, b:%s)' % (self.size, self.top, self.bottom)
+        return '(%s, %s, t:%s, b:%s)' % (self.id, self.size, self.top, self.bottom)
 
+    def topP(self): # am I on top?
+        return self.top is None
+
+    def bottomP(self): # am I on bottom?
+        return self.bottom is None
+
+from LOTlib.Eval import primitive
+
+@primitive
+def tight_fit(x,y):
+    if x is None or y is None:
+        raise WorldException
+    else:
+        return x-y == 1
+
+@primitive
+def loose_fit(x,y):
+    if x is None or y is None:
+        raise WorldException
+    else:
+        return x-y >  1
+    
 class WorldException(Exception):
     pass
 
 class WorldState(object):
-    """
-    Capture the world state. Most functions should return worldstates.
-
-    """
-
+    """Capture the world state. Most functions should return worldstates."""
     def __init__(self):
-        self.table =  { n : Cup(size=n) for n in xrange(10) }
+        self.table =  { n : Cup(id=n,size=n) for n in xrange(10) }
         self.left_hand  = None
         self.right_hand = None
 
@@ -63,109 +96,108 @@ class WorldState(object):
         if self.left_hand is None:
             raise WorldException
         else:
-            return [k for k,v in self.left_hand.iteritems() if v.bottom is None][0]
+            return [v for v in self.left_hand.itervalues() if v.bottom is None][0]
 
     def the_right_hand(self):
         if self.right_hand is None:
             raise WorldException
         else:
-            return [k for k,v in self.right_hand.iteritems() if v.bottom is None][0]
+            return [v for v in self.right_hand.itervalues() if v.bottom is None][0]
 
     def left_grab(self, x):
-        s = deepcopy(self)
-        if x in s.table and type(s.table[x]) is Cup and s.left_hand is None:
+        if x.id in self.table and self.left_hand is None:
 
             # add the object to your hand
-            s.left_hand = {x : s.table[x]}
+            self.left_hand = {x.id : x}
 
             # sever the attachment if needed
-            if s.left_hand[x].bottom:
-                s.table[s.left_hand[x].bottom].top = None
-                s.left_hand[x].bottom = None
+            if x.bottom:
+                self.table[x.bottom].top = None
+                self.left_hand[x.id].bottom = None
 
             # remove it from the table
-            del s.table[x]
+            del self.table[x.id]
 
             # add the things on top of it to your hand and remove them from the table
-            while s.left_hand[x].top is not None:
-                x = s.left_hand[x].top
-                s.left_hand[x] = s.table[x]
-                del s.table[x]
+            while x.top is not None:
+                x = self.table[x.top]
+                self.left_hand[x.id] = x
+                del self.table[x.id]
 
         else:
             raise WorldException
         
-        return s
+        return self
 
     def right_grab(self, x):
-        s = deepcopy(self)
-        if x in s.table and type(s.table[x]) is Cup and s.right_hand is None:
+        if x in self.table and self.right_hand is None:
             
             # add the object to your hand
-            s.right_hand = {x : s.table[x]}
+            self.right_hand = {x.id : x}
 
             # sever the attachment if needed
-            if s.right_hand[x].bottom:
-                s.table[s.right_hand[x].bottom].top = None
-                s.right_hand[x].bottom = None
+            if x.bottom:
+                self.table[x.bottom].top = None
+                self.right_hand[x.id].bottom = None
 
             # remove it from the table
-            del s.table[x]
+            del self.table[x.id]
 
             # add the things on top of it to your hand and remove them from the table
-            while s.right_hand[x].top is not None:
-                x = s.right_hand[x].top
-                s.right_hand[x] = s.table[x]
-                del s.table[x]
+            while x.top is not None:
+                x = self.table[x.top]
+                self.right_hand[x.id] = x
+                del self.table[x.id]
 
         else:
             raise WorldException
         
-        return s
+        return self
 
     def left_drop(self):
-        s = deepcopy(self)
-        if s.left_hand is not None:
-            s.table.update(s.left_hand)
-            s.left_hand = None
+        if self.left_hand is not None:
+            self.table.update(self.left_hand)
+            self.left_hand = None
         else:
             raise WorldException
-        return s
+        return self
 
     def right_drop(self):
-        s = deepcopy(self)
-        if s.right_hand is not None:
-            s.table.update(s.right_hand)
-            s.right_hand = None
+        if self.right_hand is not None:
+            self.table.update(self.right_hand)
+            self.right_hand = None
         else:
             raise WorldException
-        return s
+        return self
 
     def stack(self):
         """ Put right hand on top of the left """
-        s = deepcopy(self)
         # get what you're holding
-        l, r = s.left_hand, s.right_hand
+        l, r = self.left_hand, self.right_hand
 
         # you must be holding two things
         if l and r:
             top    = [k for k,v in l.iteritems() if not v.top   ][0]
             bottom = [k for k,v in r.iteritems() if not v.bottom][0]
+            
             if (r[bottom].size <= l[top].size):
                 l[top].top = bottom
                 r[bottom].bottom = top
                 l.update(r)
                 s.left_hand = l
                 s.right_hand = None
-        
+                
+            else:
+                raise WorldException
+            
         else:
             raise WorldException
         
-        return s
+        return self
 
     def choose_random(self):
         if len(self.table) >= 1:
-            return sample1(self.table.keys())
+            return sample1(self.table.values())
         else:
             raise WorldException
 
@@ -180,43 +212,16 @@ class WorldState(object):
             return None
         
     def top(self,x):
-        y = self.find(x)
-        if y is None or y.top is None:
+        if x.top is None:
             raise WorldException
         else:
-            return y.top
+            return self.find(x.top)
 
     def bottom(self,x):
-        y = self.find(x)
-        if y is None or y.bottom is None:
+        if x.bottom is None:
             raise WorldException
         else:
-            return y.bottom
-
-    def topP(self,x):
-        return self.top(x) is not None
-
-    def bottomP(self,x):
-        return self.bottom(x) is not None
-
-    def tight_fitP(self,x,y):
-        x = self.find(x)
-        y = self.find(y)
-        if x is None or y is None:
-            raise WorldException
-        else:
-            return x.size-y.size == 1
-
-    def loose_fitP(self,x,y):
-        x = self.find(x)
-        y = self.find(y)
-        if x is None or y is None:
-            raise WorldException
-        else:
-            return x.size-y.size > 1
-
-    def same_cupP(self,x,y):
-        return x == y
+            return self.find(x.bottom)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Hypothesis
