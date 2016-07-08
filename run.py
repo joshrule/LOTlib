@@ -1,23 +1,23 @@
 
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Grammar
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 from LOTlib.Grammar import Grammar
 
 grammar = Grammar(start='EXPR')
 
-grammar.add_rule('EXPR', '( %s if %s else %s)', ['EXPR', 'BOOL', 'EXPR'], 1.0)
-grammar.add_rule('EXPR', 'recurse_', [], 1.0)
+grammar.add_rule('EXPR', '(%s if %s else %s)', ['EXPR', 'BOOL', 'EXPR'], 4.0)
+grammar.add_rule('EXPR', 'recurse_',           [],                       1.0)
+grammar.add_rule('EXPR', 'cons_',              ['EXPR', 'EXPR'],         4.0)
+grammar.add_rule('EXPR', '(%s)(%s)',           ['FUNC', 'EXPR'],         1.0)
+grammar.add_rule('FUNC', 'lambda',             ['EXPR'],                 1.0, bv_type='EXPR', bv_p=4.0)
+grammar.add_rule('EXPR', '"a"',                None,                     4.0)
+grammar.add_rule('EXPR', '"b"',                None,                     4.0)
+grammar.add_rule('EXPR', '"c"',                None,                     4.0)
+grammar.add_rule('EXPR', '"d"',                None,                     4.0)
 
-grammar.add_rule('BOOL', 'flip_', [], 1.0)
-
-grammar.add_rule('EXPR', 'cons_', ['EXPR', 'EXPR'], 1.0)
-
-grammar.add_rule('EXPR', '"a"', None, 1.)
-grammar.add_rule('EXPR', '"b"', None, 1.)
-grammar.add_rule('EXPR', '"c"', None, 1.)
-
+grammar.add_rule('BOOL', 'flip_',              [],                       1.0)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Hypothesis
@@ -30,7 +30,7 @@ from LOTlib.Hypotheses.LOTHypothesis import LOTHypothesis
 from LOTlib.Hypotheses.Likelihoods.LevenshteinLikelihood import StochasticLevenshteinLikelihood
 
 def list2str(lst):
-    # Map a list (of lists) to a convenient string
+    """Map a list (of lists) to a convenient string"""
     return '('+','.join([a if isinstance(a,str) else list2str(a) for a in lst])+')'
 
 class StochasticTreeHypothesis(StochasticLevenshteinLikelihood, RecursiveLOTHypothesis):
@@ -62,7 +62,6 @@ class StochasticTreeHypothesis(StochasticLevenshteinLikelihood, RecursiveLOTHypo
 
         return llcounts
 
-
 def make_hypothesis(**kwargs):
     return StochasticTreeHypothesis(**kwargs)
 
@@ -93,4 +92,3 @@ if __name__ == "__main__":
 
         if i%plot_every == 0:
             draw_tree_grid('o.png', [h() for a_ in xrange(100)])
-

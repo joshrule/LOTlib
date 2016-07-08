@@ -1,7 +1,7 @@
 from PIL import Image, ImageDraw
 from math import ceil, sqrt
 
-colormap = {'a':'red', 'b':'blue', 'c':'green', 'x':'black'}
+colormap = {'a':'red', 'b':'blue', 'c':'green', 'd':'yellow', 'x':'black'}
 
 def tree_draw(d, coord, lst, r=20, h=70, w=50, lw=10):
     """
