@@ -69,16 +69,94 @@ def make_hypothesis(**kwargs):
 # Main code
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
 if __name__ == "__main__":
 
     from Tree import draw_tree_grid
 
-
     from LOTlib.DataAndObjects import FunctionData
-    data = [ FunctionData(input=(), output={ list2str(['a', 'b']):8,
-                                             list2str(['a', [['a', 'b'], 'b']]):4,
-                                             list2str(['a', [['a', [['a', 'b'], 'b']], 'b']]):2})  ]
+    
+#    # prototype concept: SUCCESS  (with lambdas)!
+#    data = [ FunctionData(input=(), output={ list2str(['a', ['a', [['b', 'c'], 'c']]]):16 })]
+    
+#    # nested prototype concept 0: SUCCESS (with lambdas)!
+#    # lambda recurse_: cons_("a", cons_("b", ("c" if flip_() else "d")))
+#    data = [ FunctionData(input=(), output={ list2str(['a', ['b', 'c']]):8,
+#                                             list2str(['a', ['b', 'd']]):8 })]
+
+#    # nested prototype concept 1: SUCCESS (with lambdas)!
+#    # lambda recurse_: cons_("a", cons_("b", (cons_("d", "c") if flip_() else "c")))
+#    data = [ FunctionData(input=(), output={ list2str(['a', ['b', 'c']]):8,
+#                                             list2str(['a', ['b', ['d', 'c']]]):8 })]
+
+#    # nested prototype concept 2: FAILURE
+#    # The problem is that it can't figure out that it should flip
+#    # between (cons a c) and (cons d b). Instead, it conses two flips.
+#    # This has happened in 5-6 chains that I've run.
+#    data = [ FunctionData(input=(), output={ list2str(['a', ['b', ['a', 'c']]]):8,
+#                                             list2str(['a', ['b', ['d', 'b']]]):8 })]
+    
+#    # CogSci nested prototype concept:
+#    # sampe problem as nested prototype 2
+#    data = [ FunctionData(input=(), output={ list2str(['a', ['b', ['a', [['c', [['a', ['a', 'b']], 'b']], 'a']]]]):8,
+#                                             list2str(['a', ['b', ['a', [[['b', 'a'],['c','c']],'c']]]]):8 })]
+
+#    # part concept 0: SUCCESS (with lambdas)!
+#    # lambda recurse_: cons_(cons_("b", cons_("b", "b")), cons_("c", cons_("b", "b")))
+#    data = [ FunctionData(input=(), output={ list2str( [['b', ['b', 'b']], ['c', ['b', 'b']]] ):16 })]
+
+#    # part concept 1: SUCCESS (with lambdas)!
+#    # lambda recurse_: cons_(cons_("b", cons_("b", (cons_("d", "b") if flip_() else cons_("d", "b")))), cons_("c", cons_("b", cons_("d", "b"))))
+#    data = [ FunctionData(input=(), output={ list2str( [['b', ['b', ['d', 'b']]], ['c', ['b', ['d', 'b']]]] ):16 })]
+
+    # part concept 2: SUCCESS (with lambdas)!
+    # lambda recurse_: cons_(cons_("b", cons_("b", (cons_("d", "b") if flip_() else cons_("d", "b")))), cons_("c", cons_("b", cons_("d", "b"))))
+    data = [ FunctionData(input=(), output={ list2str( [['b', [['b', 'a'], ['d', 'b']]], ['c', [['b', 'a'], ['d', 'b']]]] ):16 })]
+
+    # CogSci part concept
+#    data = [ FunctionData(input=(), output={ list2str( [[['b', ['a', ['b', 'b']]], ['c', ['a', ['b', 'b']]]],['d', ['a', ['b', 'b']]]] ):16 })]
+
+#    # parameterized part concept
+#    data = [ FunctionData(input=(), output={ list2str([[['a', 'b'], [[['a', 'b'], [[['a', 'b'], [['a', 'b'], 'b']], 'b']], 'b']], 'b']):8,
+#                                             list2str([[['a', 'c'], [[['a', 'c'], [[['a', 'c'], [['a', 'c'], 'c']], 'c']], 'c']], 'c']):8 })]
+             
+#    # Steve's single recursion concept: SUCCESS (without lambdas)!
+#    branch: ['a', [??, 'b']]
+#    leaf: ['a', 'b']
+#    data = [ FunctionData(input=(), output={ list2str(['a', 'b']):8,
+#                                             list2str(['a', [['a', 'b'], 'b']]):4,
+#                                             list2str(['a', [['a', [['a', 'b'], 'b']], 'b']]):2 })]
+
+#    # single recursion concept:
+#    base: ['c', [['a', ??], 'b']]
+#    branch1: [['a', [['a', 'b'] 'b']], ??]
+#    branch2: ['c', 'd']
+#    data = [ FunctionData(input=(), output={ list2str([['a', [['a', 'b'] 'b']], ['c', 'd']]):8,
+#                                             list2str([['a', [['a', 'b'] 'b']], ['c', [['a', ['c', 'd']], 'b']]]):4,
+#                                             list2str([['a', [['a', 'b'] 'b']], ['c', [['a', ['c', [['a', ['c', 'd']], 'b']]], 'b']]]):2,
+#                                             list2str([['a', [['a', 'b'] 'b']], ['c', [['a', ['c', [['a', ['c', [['a', ['c', 'd']], 'b']]], 'b']]], 'b']]]):1 })]
+
+
+#    # multiple recursion concept
+#    base: [['a', ['b' ['c', ?]]], ?]
+#    branch1: ['d',  ? ]
+#    branch2: ['d', 'b']
+#    branch3: ['d', 'd']
+#    data = [ FunctionData(input=(), output={ list2str([['a', ['b' ['c', ['d', 'd']]]], ['d', 'd']]):4
+#                                             list2str([['a', ['b' ['c', ['d', 'd']]]], ['d', 'b']]):4
+#                                             list2str([['a', ['b' ['c', ['d', 'b']]]], ['d', 'd']]):4
+#                                             list2str([['a', ['b' ['c', ['d', 'b']]]], ['d', 'b']]):4
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'd']]]]], ['d', 'd']]):2
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'd']]]]], ['d', 'b']]):2
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'b']]]]], ['d', 'd']]):2
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'b']]]]], ['d', 'b']]):2
+#                                             list2str([['a', ['b' ['c', ['d', 'd']]]], ['d', ['d', 'd']]]):2
+#                                             list2str([['a', ['b' ['c', ['d', 'd']]]], ['d', ['d', 'b']]]):2
+#                                             list2str([['a', ['b' ['c', ['d', 'b']]]], ['d', ['d', 'd']]]):2
+#                                             list2str([['a', ['b' ['c', ['d', 'b']]]], ['d', ['d', 'b']]]):2
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'd']]]]], ['d', ['d', 'd']]]):1
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'd']]]]], ['d', ['d', 'b']]]):1
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'b']]]]], ['d', ['d', 'd']]]):1
+#                                             list2str([['a', ['b' ['c', ['d', ['d', 'b']]]]], ['d', ['d', 'b']]]):1 })]
     h0 = make_hypothesis()
 
     plot_every = 1000
