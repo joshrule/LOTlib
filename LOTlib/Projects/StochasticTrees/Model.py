@@ -71,7 +71,7 @@ def make_hypothesis(**kwargs):
 
 if __name__ == "__main__":
 
-    from Tree import draw_tree_grid
+    from DrawTree import draw_tree_grid
 
     from LOTlib.DataAndObjects import FunctionData
     
