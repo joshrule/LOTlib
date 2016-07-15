@@ -30,7 +30,7 @@ from LOTlib.Hypotheses.LOTHypothesis import LOTHypothesis
 from LOTlib.Hypotheses.Likelihoods.LevenshteinLikelihood import StochasticLevenshteinLikelihood
 
 def list2str(lst):
-    """Map a list (of lists) to a convenient string"""
+    """Map a list (of lists) to a convenient string - no quote marks!"""
     return '('+','.join([a if isinstance(a,str) else list2str(a) for a in lst])+')'
 
 class StochasticTreeHypothesis(StochasticLevenshteinLikelihood, RecursiveLOTHypothesis):
@@ -72,9 +72,65 @@ def make_hypothesis(**kwargs):
 if __name__ == "__main__":
 
     from DrawTree import draw_tree_grid
-
+    from LOTlib import break_ctrlc,SIG_INTERRUPTED
     from LOTlib.DataAndObjects import FunctionData
-    
+    from LOTlib.Inference.Samplers.MetropolisHastings import MHSampler
+    from LOTlib.Inference.Samplers.StandardSample import standard_sample
+    from LOTlib.MPI.MPI_map import MPI_unorderedmap, is_master_process
+    import itertools
+    import numpy
+
+    def run(make_hypothesis, make_data):
+        """
+        This out on the DATA_RANGE amounts of data and returns all hypotheses in top count
+        """
+        if SIG_INTERRUPTED:
+            return set()
+
+        topCount = 100
+        steps = 10000
+        return standard_sample(make_hypothesis,
+                               make_data,
+                               N=topCount,
+                               steps=steps,
+                               show=False,save_top=None)
+
+        # plot_every = 1000
+        # if i%plot_every == 0:
+        #      draw_tree_grid('o.png', [h() for a_ in xrange(100)])
+
+    # part concept 2: SUCCESS (with lambdas)!
+    # lambda recurse_: cons_(cons_("b", cons_("b", (cons_("d", "b") if flip_() else cons_("d", "b")))), cons_("c", cons_("b", cons_("d", "b"))))
+    data = [ FunctionData(input=(), output={ list2str( [['b', [['b', 'a'], ['d', 'b']]], ['c', [['b', 'a'], ['d', 'b']]]] ):16 })]
+    def make_data():
+        return data
+ 
+    # choose the appropriate map function
+    nChains = 6
+    args = list(itertools.product([make_hypothesis],[make_data] * nChains) )
+
+    seen = set()
+    for fs in MPI_unorderedmap(run, numpy.random.permutation(args)):
+        assert is_master_process()
+        print "another one bites the dust!"
+
+        for h in fs:
+
+            if h not in seen:
+                seen.add(h)
+
+#               if eval_data is not None:
+#                   h.compute_posterior(eval_data) # evaluate on the big data
+#                   print h.posterior_score, h.prior, h.likelihood / options.EVAL_DATA, \
+#                           alsoprint(h) if alsoprint is not None else '',\
+#                           qq(cleanFunctionNodeString(h))
+
+    import pickle
+    with open('/home/rule/projects/stochastic_trees/test.pkl', 'w') as f:
+        pickle.dump(seen, f)
+
+# OTHER DATA
+
 #    # prototype concept: SUCCESS  (with lambdas)!
 #    data = [ FunctionData(input=(), output={ list2str(['a', ['a', [['b', 'c'], 'c']]]):16 })]
     
@@ -107,10 +163,6 @@ if __name__ == "__main__":
 #    # part concept 1: SUCCESS (with lambdas)!
 #    # lambda recurse_: cons_(cons_("b", cons_("b", (cons_("d", "b") if flip_() else cons_("d", "b")))), cons_("c", cons_("b", cons_("d", "b"))))
 #    data = [ FunctionData(input=(), output={ list2str( [['b', ['b', ['d', 'b']]], ['c', ['b', ['d', 'b']]]] ):16 })]
-
-    # part concept 2: SUCCESS (with lambdas)!
-    # lambda recurse_: cons_(cons_("b", cons_("b", (cons_("d", "b") if flip_() else cons_("d", "b")))), cons_("c", cons_("b", cons_("d", "b"))))
-    data = [ FunctionData(input=(), output={ list2str( [['b', [['b', 'a'], ['d', 'b']]], ['c', [['b', 'a'], ['d', 'b']]]] ):16 })]
 
     # CogSci part concept
 #    data = [ FunctionData(input=(), output={ list2str( [[['b', ['a', ['b', 'b']]], ['c', ['a', ['b', 'b']]]],['d', ['a', ['b', 'b']]]] ):16 })]
@@ -157,16 +209,3 @@ if __name__ == "__main__":
 #                                             list2str([['a', ['b' ['c', ['d', ['d', 'd']]]]], ['d', ['d', 'b']]]):1
 #                                             list2str([['a', ['b' ['c', ['d', ['d', 'b']]]]], ['d', ['d', 'd']]]):1
 #                                             list2str([['a', ['b' ['c', ['d', ['d', 'b']]]]], ['d', ['d', 'b']]]):1 })]
-    h0 = make_hypothesis()
-
-    plot_every = 1000
-
-    from LOTlib.Inference.Samplers.MetropolisHastings import MHSampler
-    from LOTlib import break_ctrlc
-
-    for i, h in enumerate(break_ctrlc(MHSampler(h0, data))):
-        print h.posterior_score, h.prior, h.likelihood, h
-        print h.ll_counts
-
-        if i%plot_every == 0:
-            draw_tree_grid('o.png', [h() for a_ in xrange(100)])
