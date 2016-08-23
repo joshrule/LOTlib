@@ -1,3 +1,17 @@
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+# Model 0:
+#
+# This model is stupidly simple. We're not even interested in being
+# able to express the various stages through which kids might be able
+# to go. This model provides an extremely simple decomposition of how
+# an adult might describe the task:
+#
+# 1. Given the current state, find two objects that fit together
+# 2. stack them
+# 3. recurse
+#
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Grammar
@@ -10,24 +24,26 @@
 
 from LOTlib.Grammar import Grammar
 
-grammar = Grammar(start='WORLD-STATE')
+grammar = Grammar(start='STATE')
 
-grammar.add_rule('WORLD-STATE', 'ws',                   None,                      10.0)
-grammar.add_rule('WORLD-STATE', 'recurse_',             ['WORLD-STATE'],           1.0)
-grammar.add_rule('WORLD-STATE', '%s.tight_fit()',       ['WORLD-STATE'],           1.0)
-grammar.add_rule('WORLD-STATE', '%s.stack()',           ['WORLD-STATE'],           1.0)
+grammar.add_rule('STATE', 's',              None,      10.0)
+grammar.add_rule('STATE', 'recurse_',       ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.tight_fit()', ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.stack()',     ['STATE'], 1.0)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Cup
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class Cup(object):
-    """cups have a size, and be on top of or under another cup)"""
-    def __init__(self, size=1):
-        self.__dict__.update(locals())
+from LOTlib.Miscellaneous import self_update
 
-    def __str__(self):
-        return 'C(%s)' % self.size
+class Cup(object):
+    """cups have a size"""
+    def __init__(self, size=1):
+        self_update(self,locals())
+
+    def __repr__(self):
+        return 'Cup(size=%s)' % self.size
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Stack
@@ -36,22 +52,22 @@ class Cup(object):
 class Stack(object):
     def __init__(self, parts=[]):
         self.parts = parts
-        self.height = sum([1 if type(part) is Cup else part.height for part in parts])
+        self.height = sum([1 if isinstance(part,Cup) else part.height for part in parts])
 
-    def __str__(self):
-        return str([str(part) for part in self.parts])
+    def __repr__(self):
+        return 'Stack(parts=[%s])' % str([str(part) for part in self.parts])
 
     def top(self):
         if self.parts:
             part = self.parts[-1]
-            return part if type(part) is Cup else part.top()
+            return part if isinstance(part,Cup) else part.top()
         else:
             raise WorldException
 
     def bottom(self):
         if self.parts:
             part = self.parts[0]
-            return part if type(part) is Cup else part.bottom()
+            return part if isinstance(part,Cup) else part.bottom()
         else:
             raise WorldException
 
@@ -92,7 +108,7 @@ class WorldState(object):
             return self.tight_fit()
     
     def stack(self):
-        if self.attention1 is not None and self.attention2 is not None and self.attention1.top().size >= self.attention2.bottom().size:
+        if self.attention1 and self.attention2 and self.attention1.top().size >= self.attention2.bottom().size:
             self.table.remove(self.attention1)
             self.table.remove(self.attention2)
             self.table.add(Stack(parts=[self.attention1,self.attention2]))
@@ -115,7 +131,7 @@ from LOTlib.Eval import TooBigException, RecursionDepthException
 class StackerHypothesis(RecursiveLOTHypothesis):
 
     def __init__(self, grammar=grammar, **kwargs):
-        RecursiveLOTHypothesis.__init__(self, grammar=grammar, display='lambda recurse_, ws: %s', **kwargs) # for recursive hypotheses, must pass in recurses
+        RecursiveLOTHypothesis.__init__(self, grammar=grammar, display='lambda recurse_, s: %s', **kwargs) # for recursive hypotheses, must pass in recurse_
 
     @attrmem('likelihood')
     def compute_likelihood(self, data, shortcut=None):
@@ -127,7 +143,7 @@ class StackerHypothesis(RecursiveLOTHypothesis):
             ws = self(ws)
 
         except (TooBigException, RecursionDepthException):
-            return -100
+            return -Infinity
         except WorldException:
             pass
 
@@ -139,8 +155,6 @@ class StackerHypothesis(RecursiveLOTHypothesis):
 
 from LOTlib.Inference.Samplers.MetropolisHastings import MHSampler
 
-h0 = StackerHypothesis()
-
-# we use a low likelihood_temperature to count the data more (i.e. favor higher likelihoods?)
-for h in break_ctrlc(MHSampler(h0, [], steps=100000, skip=100, prior_temperature=1.0, likelihood_temperature=0.001)):
+# we use a low likelihood_temperature to count the data more by favoring higher likelihoods
+for h in break_ctrlc(MHSampler(StackerHypothesis(), [], steps=100000, skip=100, prior_temperature=1.0, likelihood_temperature=0.001)):
     print h.posterior_score, h.prior, h.likelihood, q(h)

@@ -1,0 +1,97 @@
+* readme
+
+** current models in the repository
+
+1. play.py - a model in which everything is a stack (called a cup in
+   the model), and actions aren't always from world-state to
+   world-state but may produce booleans, cups, etc.
+2. play_cup.py - a confused attempt to provide a cup-only model, with
+   no notions of stacks. It's confused because I (Josh Rule) built it
+   before thinking carefully about what separates cup-based models
+   from stack-based models.
+3. play_stack.py - a similar model to play_cup, but this time with
+   only the notion of a stack and no notion of cups. It, too, is
+   fairly confused.
+4. play_cup_stack.py - the third confused model, in which there are
+   both cups and stacks. These models should probably be removed from
+   the repository, as they don't provide much insight.
+5. play_multiple.py - an interesting idea with a kludgy approach. The
+   idea here is that we start with a simple cup-only representation
+   but may learn that it's easiest to learn the correct algorithm in a
+   stack-based representation and must thus learn how to convert cups
+   into stacks and how to stack stacks.
+6. play_cup_2.py - here's where I began thinking more carefully about
+   how to separate cup-based from stack-based models. This model is
+   relatively simple, as I decided to also work from the simplest
+   models up toward more complex ones. This model really just has the
+   world state, the ability to recurse, the ability to pick the
+   largest cup not already in the solution, and the ability to add a
+   cup to which it is attending to the solution.
+7. play_cup_3.py - a significant extension to play_cup_2, with more
+   primitives and multiple kinds of non-terminals. The program
+   required here is significantly more complex.
+8. play_stack_simple.py - a fairly straightforward stack-based model.
+   This is one of the first models I wrote that makes as many actions
+   as possible move from world-state to world-state. The idea here is
+   that I don't want the language structure to provide cues about how
+   to perform the problem, but I also want to keep the number of
+   primitives relatively small.
+9. play_stack_2.py - a very simple model which is similar to
+   play_cup_2.py but focused on stacks rather than cups. It doesn't
+   include the notion of a solution stack, just the stacks that exist
+   in the world. The model has a world state, a recurse operator, the
+   ability to check whether two objects fit well, and then the ability
+   to stack two objects.
+10. play_stack_3.py - This model collapses almost everything into
+    transitions between world-states, with one boolean function, and
+    the addition of "sides" to help minimize the amount of code I
+    wrote. Sides simply tell me whether to prefer the left-hand or
+    right-hand side in some operation. This model is an extension of
+    play_stack_2 where the agent can decide to put down objects if
+    they don't pass a desired test. So, a bit of the complexity is
+    moved out of the built-in functions and added to the search
+    process.
+
+** Useful models
+
+What models, however, do we actually want? The answer depends on what
+we hope to show with these models. If that's unclear, the choice of
+models will be haphazard. We have several options, each of which
+highlights something interesting about the learning process:
+
+1. the development of procedural knowledge: the progression from a
+   random one-off strategy to an iterative strategy to a
+   quasi-divide-and-conquer strategy.
+2. the development of an understanding of relevant features: the size
+   of individual cups -- as opposed to their color, weight, or pattern
+   -- is the relevant feature here. Furthermore, it's the tightness of
+   fit between cups, their relative sizes, that is of crucial
+   importance. The task can be solved entirely without reference to
+   absolute size so long as relative size (tightness of fit) can be
+   established. Monitoring the development of this knowledge is
+   monitoring the development not of entirely new conceptual knowledge
+   (most likely), but of the application of this knowledge to a
+   specific problem.
+3. the development of new representations: the creation stacks as a
+   representational unit
+4. type polymorphism: the development of knowledge about how stacks
+   are similar or dissimilar to cups, and how objects can be viewed
+   simultaneously as stacks and cups
+5. error recovery: the development of algorithms that can recover even
+   after some wrong action has been taken
+
+A set of models covering all these aspects of learning would be
+impressive. Let's take them in order. What models do we need to
+demonstrate (1)? I think we should be able to use a stack-based
+approach and simply show via the history of the MCMC chain how the
+model progresses over time from simpler to more sophisticated
+algorithms.
+
+Then, to capture (2), we just need to increase the complexity of the
+objects in the model. We can add features other than size that either
+are (e.g. weight) or are not (e.g. color) correlated with size and see
+how the model learns to adjust its strategies over the course of the
+MCMC chain.
+
+At that point, we'll have a fairly mature model of the basic process
+and will be able to then look at (3).
