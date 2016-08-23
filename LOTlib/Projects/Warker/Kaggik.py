@@ -1,21 +1,16 @@
 from LOTlib.Eval import primitive
 from LOTlib.DataAndObjects import FunctionData
-import random
-
+from LOTlib.Miscellaneous import attrmem, Infinity, nicelog
+from OptionParser import options
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Data
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def make_data(size=100):
-    #onset: h coda: N unrestricted: f s n m
+def make_data(size=options.datasize):
     return [FunctionData(input=[],
-                         output={'k i s': 100, 'm i m': 100, 'n a s': 100, 'm a k': 100, 'h i s': 100, 'm i f': 100, 's a f': 100, 'n a N': 100, 'm a s': 100, 'k i m': 100, 'g a k': 100, 'm i s': 100, 's i f': 100, 'h a n': 100, 'n i n': 100, 's a n': 100, 'f i f': 100, 's i n': 100, 'm a n': 100, 'n a m': 100, 'f a m': 100, 'n i f': 100, 'k i N': 100, 'g a s': 100, 'f a n': 100, 'f a s': 100, 'm a f': 100, 'g a N': 100, 'h a s': 100, 'n a f': 100, 'n i s': 100, 'k i n': 100, 'f a k': 100, 'n i g': 100, 'k i g': 100, 'h i g': 100, 'g a m': 100, 'k i f': 100, 'h a k': 100, 'h i N': 100, 's a N': 100, 'f i m': 100, 'h a m': 100, 'm a N': 100, 's i N': 100, 's i g': 100, 'n a n': 100, 's a m': 100, 'h i f': 100, 'm i g': 100, 's i s': 100, 'm i n': 100, 'h i n': 100, 'm i N': 100, 'f i n': 100, 'h a N': 100, 's i m': 100, 's a k': 100, 'f i g': 100, 'n a k': 100, 'g a n': 100, 'h a f': 100, 'm a m': 100, 'g a f': 100, 'f i s': 100, 'n i N': 100})]
+                         output={'n i k': size, 'h i N': size, 'f a n': size, 'g i f': size, 'm a N': size, 'n a s': size, 'g i k': size, 'k a n': size, 'n i f': size, 'f a g': size, 'g i m': size, 'g i s': size, 's i f': size, 'k i m': size, 'n i m': size, 'g a s': size, 'k a f': size, 'f a s': size, 's i n': size, 's a f': size, 's i k': size, 's i m': size, 'h i m': size, 'h i n': size, 'f a N': size, 'h i k': size, 'k a m': size, 'h i f': size, 'f a m': size, 'g i N': size, 'm i f': size, 'n i s': size, 'k i N': size, 's i N': size, 'n a m': size, 'h i s': size, 'f i s': size, 'k a s': size, 'g a n': size, 'g a m': size, 'h a f': size, 'k i s': size, 'm i n': size, 'k a N': size, 'g a f': size, 'g i n': size, 'k a g': size, 's a n': size, 's a m': size, 'n a f': size, 'n a g': size, 'm i N': size, 's a g': size, 'f i k': size, 'h a N': size, 'f i n': size, 'f i m': size, 'm a s': size, 'g a N': size, 'h a s': size, 'k i f': size, 'n a N': size, 'm i s': size, 's a N': size, 'm i k': size, 'h a g': size, 'm a g': size, 'm a f': size, 'k i n': size, 'h a m': size, 'h a n': size, 'n i N': size, 'f i N': size, 'm a n': size})]
 
 
-
-# if vowel is a: g is onset, k is coda. if vowel is i: g is coda k is onset.
-#h is always onset. N is always coda
-#unrestricted sounds: f s n m
 
 import LOTlib.Miscellaneous
 from LOTlib.Grammar import Grammar
@@ -23,31 +18,23 @@ from LOTlib.Miscellaneous import q
 from LOTlib.Eval import register_primitive
 register_primitive(LOTlib.Miscellaneous.flatten2str)
 
-@primitive
-def vowels_():
-    return "aeiou"
 
-TERMINAL_WEIGHT = 20
+TERMINAL_WEIGHT = 35
 
 grammar = Grammar()
 
 grammar.add_rule('START', 'flatten2str', ['EXPR'], 1.0)
 grammar.add_rule('EXPR', 'sample_', ['SET'], 1.0)
-grammar.add_rule('EXPR', 'cons_', ['EXPR', 'EXPR'], 1.0/2.0)
+grammar.add_rule('EXPR', 'cons_', ['EXPR', 'EXPR'], 1.0/1.5)
 
 grammar.add_rule('SET', '"%s"', ['STRING'], 1.0)
 grammar.add_rule('STRING', '%s%s', ['TERMINAL', 'STRING'], 1.0)
 grammar.add_rule('STRING', '%s', ['TERMINAL'], 1.0)
 
-grammar.add_rule('EXPR', 'if_', ['BOOL', 'EXPR', 'EXPR'], 1./5)
-grammar.add_rule('BOOL', 'equal_', ['EXPR', 'EXPR'], 1./10)
-grammar.add_rule('BOOL', 'flip_', [''], 1./5)
+grammar.add_rule('EXPR', 'if_', ['BOOL', 'EXPR', 'EXPR'], 1./4)
+grammar.add_rule('BOOL', 'flip_', [''], 1.)
 
-grammar.add_rule('SET', 'vowels_()', None, 1.0)
-#if sample(vowels) equals 'a': cons(cons(sample("ghfsnm"),'a',sample("kNfsnm")
 
-#or if flip(sample(ghfsnm),'a',sample(kNfsnm))
-# my terminal sounds
 grammar.add_rule('TERMINAL', 'g', None, TERMINAL_WEIGHT)
 grammar.add_rule('TERMINAL', 'a', None, TERMINAL_WEIGHT)
 grammar.add_rule('TERMINAL', 'i', None, TERMINAL_WEIGHT)
@@ -59,13 +46,8 @@ grammar.add_rule('TERMINAL', 'm', None, TERMINAL_WEIGHT)
 grammar.add_rule('TERMINAL', 'h', None, TERMINAL_WEIGHT)
 grammar.add_rule('TERMINAL', 'N', None, TERMINAL_WEIGHT)
 
-## Allow lambda abstraction
-'''grammar.add_rule('EXPR', 'apply_', ['LAMBDAARG', 'LAMBDATHUNK'], 1./10)
-grammar.add_rule('LAMBDAARG',   'lambda', ['EXPR'], 1./10, bv_type='EXPR', bv_args=[] )
-grammar.add_rule('LAMBDATHUNK', 'lambda', ['EXPR'], 1./10, bv_type=None, bv_args=None ) # A thunk'''
 
-
-from LOTlib.Hypotheses.Likelihoods.StochasticFunctionLikelihood import StochasticFunctionLikelihood
+from LOTlib.Hypotheses.Likelihoods.StochasticLikelihood import StochasticLikelihood
 from LOTlib.Hypotheses.LOTHypothesis import LOTHypothesis
 #from LOTlib.Hypotheses.Likelihoods.LevenshteinLikelihood import StochasticLevenshteinLikelihood
 from LOTlib.Hypotheses.Proposers import insert_delete_proposal, ProposalFailedException, regeneration_proposal
@@ -75,15 +57,11 @@ from LOTlib.Miscellaneous import logsumexp
 #from Levenshtein import distance
 from math import log
 
-class MyHypothesis(StochasticFunctionLikelihood, LOTHypothesis):
-#Levenshtein distance allows us to accept a bit of noise when calculating our likelihood for our proposals
+class MyHypothesis(StochasticLikelihood, LOTHypothesis):
 #class MyHypothesis(StochasticLevenshteinLikelihood, LOTHypothesis):
     def __init__(self, grammar=None, **kwargs):
         LOTHypothesis.__init__(self, grammar, display='lambda : %s', **kwargs)
 
-
-    # we can get stuck pretty easily without this insert/delete ability.
-    # This will allow an insertion/deletion in the generated FunctionNodes
 
     #overwrite propose
     def propose(self, **kwargs):
@@ -99,6 +77,20 @@ class MyHypothesis(StochasticFunctionLikelihood, LOTHypothesis):
 
         return ret, fb
 
+    @attrmem('likelihood')
+    def compute_likelihood(self, data, shortcut=-Infinity, nsamples=512, sm=0.1, **kwargs):
+        # For each input, if we don't see its input (via llcounts), recompute it through simulation
+
+        ll = 0.0
+        for datum in data:
+            self.ll_counts = self.make_ll_counts(datum.input, nsamples=nsamples)
+            z = sum(self.ll_counts.values())
+            ll += sum([datum.output[k]*(nicelog(self.ll_counts[k]+sm) - nicelog(z+sm*len(datum.output.keys()))) for k in datum.output.keys()])
+            if ll < shortcut:
+                return -Infinity
+
+        return ll / self.likelihood_temperature
+
     #overwrite compute_single_likelihood to alter distance factor
     '''def compute_single_likelihood(self, datum, distance_factor=1000.0):
         assert isinstance(datum.output, dict), "Data supplied must be a dict (function outputs to counts)"
@@ -109,10 +101,15 @@ class MyHypothesis(StochasticFunctionLikelihood, LOTHypothesis):
 
 def make_hypothesis():
     return MyHypothesis(grammar)
+from LOTlib.TopN import TopN
 
 def runme(x):
     print "Start: " + str(x)
-    return standard_sample(make_hypothesis, make_data, show=False, save_top= "top.pkl", steps=10000)
+    fuckup = TopN(options.top)
+    try:
+        return standard_sample(make_hypothesis, make_data, show=False, N=options.top, save_top= "top.pkl", steps=options.steps)
+    except:
+        return fuckup
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Main
@@ -121,16 +118,17 @@ def runme(x):
 if __name__ == "__main__":
 
     from LOTlib.Inference.Samplers.StandardSample import standard_sample
-    from LOTlib.Primitives.Functional import cons_
+
+
     #standard_sample(make_hypothesis, make_data, show_skip=9, save_top=False)
 
-    #for running parallel
+
     from LOTlib.MPI import MPI_map
-    args=[[x] for x in range(12)]
+    args=[[x] for x in range(40)]
     myhyp=set()
 
     for top in MPI_map(runme, args):
         myhyp.update(top)
 
     import pickle
-    pickle.dump(myhyp, open("tophyp.pkl", "wb"))
+    pickle.dump(myhyp, open(options.filename, "wb"))

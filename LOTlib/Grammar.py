@@ -23,8 +23,7 @@ class Grammar(CommonEqualityMixin):
     A PCFG-ish class that can handle rules that introduce bound variables
     """
     def __init__(self, BV_P=10.0, start='START'):
-        self.__dict__.update(locals())
-        self.__dict__.pop('self')  # we don't want self.self! https://stackoverflow.com/questions/6025758/
+        self_update(self,locals())
         self.rules = defaultdict(list)  # A dict from nonterminals to lists of GrammarRules.
         self.rule_count = 0
         self.bv_count = 0   # How many rules in the grammar introduce bound variables?
@@ -79,7 +78,7 @@ class Grammar(CommonEqualityMixin):
         rules = self.get_rules(t.returntype)
         matching_rules = [r for r in rules if (r.get_rule_signature() == t.get_rule_signature())]
         assert len(matching_rules) == 1, \
-            "Grammar Error: " + str(len(matching_rules)) + " matching rules for this FunctionNode! %s %s" % (t.get_rule_signature(), str(t))
+            "Grammar Error: " + str(len(matching_rules)) + " matching rules for this FunctionNode! %s %s %s" % (t.get_rule_signature(), str(t), matching_rules)
         return matching_rules[0]
 
     def single_probability(self, t):

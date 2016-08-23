@@ -1,75 +1,69 @@
-import random
+from itertools import product
 
-def dellData(bool):
-    unrestricted = ['k', 'g', 'm', 'n']
-    onsets = ['f', 'h']
-    codas = ['s', 'N']
-    vowels = ['e']
-
-    onsets += (unrestricted)
-    codas += (unrestricted)
-
-    stim = ''
-    if(bool):
-        stim+=random.choice(onsets)+' '+random.choice(vowels)+' '+random.choice(codas)
-    else:
-        stim+=random.choice(codas)+' '+random.choice(vowels)+' '+random.choice(onsets)
-    return stim
+def unique_chars_set(s):
+    s = ''.join(s.split())
+    return len(s) == len(set(s))
 
 
-def kaggikData(bool):
+all_words = [''.join(i) for i in product(['f ','s ','n ','m ','g ','h ','s ','k ','N ','e '], repeat = 3)]
 
-    unrestricted = ['f', 's', 'm', 'n']
-    onsetsa = ['g', 'h']
-    codasa = ['k', 'N']
-    onsetsi = ['k','h']
-    codasi = ['g','N']
-    vowels = ['a','i']
+words_with_vowel = []
+stim_words = []
+possible = []
+for w in all_words:
+    if 'e' in w:
+        s = w.strip(' \t\n\r')
+        words_with_vowel.append(s)
+        if (w[4]!= 'h') and (w[0]!="N") and w[0]!='e'  and w[4]!= 'e' and w[0]!='s' and w[4]!='f':
+            if w[2]=='e':
+                possible.append(w.strip(' \t\n\r'))
+                if unique_chars_set(w):
 
-    onsetsa += (unrestricted)
-    codasa += (unrestricted)
-    onsetsi += (unrestricted)
-    codasi+= (unrestricted)
+                        stim_words.append(w)
 
-    stim = ''
-    v = random.choice(vowels)
+stimdict = dict((w.strip(' \t\n\r'), 100) for w in stim_words)
 
-    if v == 'a':
-        if bool:
-            stim+=random.choice(onsetsa)+' '+v+' '+random.choice(codasa)
-        else:
-            stim+=random.choice(codasa)+' '+v+' '+random.choice(onsetsa)
-    else:
-        if bool:
-            stim+=random.choice(onsetsi)+' '+v+' '+random.choice(codasi)
-        else:
-            stim+=random.choice(codasi)+' '+v+' '+random.choice(onsetsi)
-
-    return stim
+print stimdict
+print possible
 
 
 
 
 
+KGall_words = [''.join(i) for i in product(['f ','s ','n ','m ','g ','h ','s ','k ','N ','a ','i '], repeat = 3)]
+
+kaggik_words = []
+kaggikvowel=[]
+for w in KGall_words:
+    w = w.strip(' \t\n\r')
+    if 'a' in w or 'i' in w:
+        kaggikvowel.append(w)
+    if unique_chars_set(w) and (w[4]!= 'h') and (w[0]!="N") and (w[0]!='a' and w[0]!= 'i') and (w[4]!= 'a' and w[4]!= 'i'):
+        if w[2]=='a' and w[4]!='k':
+            kaggik_words.append(w)
+        if w[2]=='i' and w[4]!='g':
+            kaggik_words.append(w)
+
+print kaggikvowel
+
+KGstimdict = dict((w.strip(' \t\n\r'), 100) for w in kaggik_words)
 
 
+englishALL = [''.join(i) for i in product(['e ','I ','a ','A ','u ','O ','o ','U ','t ','r ','l ','s ','d ','n ','k ','m ','z ','v ','p ','w ','b ','f ','y ','g ','h ','S ','N ','j ','T '], repeat = 3)]
+vowels = ['e','I','a','A','u','U','O','o']
+english_vowel=[]
+for w in englishALL:
+    w = w.strip(' \t\n\r')
+    if w[2] in vowels and w[0] not in vowels and w[4] not in vowels:
+        english_vowel.append(w)
+print english_vowel
 
-def lotsa(n, size, fn, bool):
-    mydata = {}
-    setty = set()
-    for i in range(0,n):
-        mydata.update({fn(bool):size})
-        setty.add(fn(bool))
-    print(setty)
-    return mydata
-#lotsa(100, 100, dellData,False)
-d = lotsa(200,100, kaggikData,False)
-listy = []
-for k,v in d.items():
-    if 'N' in k or 'k' in k or 'g' in k or 'h' in k:
-        listy.append(k)
-print (listy)
-from LOTlib.Primitives import *
-from LOTlib.Miscellaneous import flatten2str
-for i in range(50):
-    print(flatten2str(if_(flip_(),cons_(cons_(sample_("fsnmgh"),'a'),sample_("fsnmkN")),cons_(cons_(sample_( "fsnmkh"),'i'),sample_("fsnmgN")))))
+classesALL = [''.join(i) for i in product(['p ','b ','m ','w ','i ','e ','f ','v ','t ','s ','z ','h ','d ','s ','z ','n ','l ','r ','h ','j ','k ','g ','N '], repeat = 3)]
+cvowels=['e','i']
+classes_vowel=[]
+for w in classesALL:
+    w = w.strip(' \t\n\r')
+    if w[2] in cvowels and w[0] not in cvowels and w[4] not in cvowels:
+        classes_vowel.append(w)
+print classes_vowel
+

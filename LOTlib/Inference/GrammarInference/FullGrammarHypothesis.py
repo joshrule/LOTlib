@@ -1,10 +1,10 @@
 import numpy as np
-from random import random
+from random import random, randint
 from copy import copy, deepcopy
 from scipy.misc import logsumexp
 from scipy.stats import dirichlet, binom, gamma, norm, beta
 from LOTlib.Hypotheses.Hypothesis import Hypothesis
-from LOTlib.Miscellaneous import sample1
+from LOTlib.Miscellaneous import sample1,self_update
 from LOTlib.Hypotheses.Stochastics import *
 
 class FullGrammarHypothesis(Hypothesis):
@@ -29,7 +29,7 @@ class FullGrammarHypothesis(Hypothesis):
 
         L = numpy.array(L)
 
-        self.__dict__.update(locals())
+        self_update(self,locals())
         self.N_groups = len(GroupLength)
         self.nts    = Counts.keys() # all nonterminals
         self.nrules = { nt: Counts[nt].shape[1] for nt in self.nts} # number of rules for each nonterminal
@@ -37,7 +37,7 @@ class FullGrammarHypothesis(Hypothesis):
 
         if value is None:
             value = {
-                      'rulep': { nt: GibbsDirchlet(alpha=np.ones(self.nrules[nt]), proposal_scale=1000.) for nt in self.nts },
+                      'rulep': { nt: DirichletDistribution(alpha=np.ones(self.nrules[nt]), proposal_scale=1000.) for nt in self.nts },
                       'alpha': BetaDistribution(1,1),
                       'beta':  BetaDistribution(1,1),
                       'likelihood_temperature':   GammaDistribution(a=1, scale=1, proposal_scale=10.),
@@ -66,6 +66,7 @@ class FullGrammarHypothesis(Hypothesis):
 
         pos = 0 # what response are we on?
         likelihood = 0.0
+        # for g in [randint(0, self.N_groups - 1) for _ in xrange(10)]
         for g in xrange(self.N_groups):
             posteriors =  self.L[g]/llt + priors # posterior score
             posteriors = np.exp(posteriors - logsumexp(posteriors)) # posterior probability
@@ -73,7 +74,6 @@ class FullGrammarHypothesis(Hypothesis):
             # Now compute the probability of the human data
             for _ in xrange(self.GroupLength[g]):
                 ps = (1 - alpha) * beta + alpha * np.dot(posteriors, self.ModelResponse[pos])
-                # ps = np.dot(posteriors, self.ModelResponse[pos]) # model probabiltiy of saying yes
 
                 likelihood += binom.logpmf(self.Nyes[pos], self.Ntrials[pos], ps)
                 pos = pos + 1
