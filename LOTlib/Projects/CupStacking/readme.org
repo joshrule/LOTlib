@@ -11,6 +11,9 @@
 2. Model1.py - a stack model similar to Model0. The additional
    complexity here is that the agent must now choose between using a
    loose or a tight fit.
+3. Model2.py - a stack model similar to Model0. This model is focused
+   on capturing just the first stage we notice empirically - grabbing
+   two objects and stacking them.
 
 ** useful models
 
