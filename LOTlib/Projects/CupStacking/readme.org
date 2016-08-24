@@ -20,6 +20,13 @@
    that it tries to decompose the act of stacking into enough pieces
    that it shouldn't be easily repeatable in a search without
    iteration.
+5. Model2_2.py - a stack model similar to Model2_1, but with
+   recursion. Adding the ability to entertain recursive hypotheses
+   doesn't seem to have much effect for short MCMC chains, but for
+   longer chains, you might end up with some preference for using
+   recursion. This preference would certainly show up if having 5
+   2-high towers were better than just having 10 cups (which is
+   clearly true!).
 
 
 ** useful models
