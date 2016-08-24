@@ -12,36 +12,43 @@
 # 2. pick up the smaller item
 # 2. stack the item in your hand on the other item
 #
-# This approach still doesn't seem to make it complicated enough to
-# stack two items on top of each other. I can make the task harder by
-# adding more intervening steps, such as choosing one cup, choosing
-# the other, picking up the second cup, and then stacking it on the
-# first.
+# This approach seems to make it complicated enough to stack two items
+# on top of each other that stacking a third doesn't happen easily. I
+# got to this point by just splitting each subroutine into smaller
+# subroutines.
 #
-# But, something seems missing here - a good explanation for why the
-# initial pattern is firmly stuck at 2. It could just be a complicated
-# motor pattern that needs to be learned, but there may be more to it
-# than that. What could it be? I think we want to say that the program
-# is hard enough to learn that you can't easily repeat the process. It
-# seems too easy in the current language to repeat the stacking
-# operation. How do we make that more difficult? It should require all
-# the steps. Stacking should nullify the previous selections.
+# This model makes a sharp distinction between cups and stacks, which
+# is part of what makes search difficult. The model must decide not
+# only which actions to take and in what order, but what types of
+# objects it would like to include in each operation: stacks, cups, or
+# a suitable mix of both.
+#
+# That's fine for now, but how does it affect the second and third
+# stages of the algorithm? The second stage is one in which you can
+# create the initial stack and then choose cups one at a time to add
+# to that stack. The third stage is one in which you can create the
+# initial stack, and *either* choose cups one at a time to add to that
+# stack, or choose to manipulate the stack directly. If manipulating
+# the stack directly, you can pick it up and put it on another stack
+# or on a cup.
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Grammar
-#
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 from LOTlib.Grammar import Grammar
 
 grammar = Grammar(start='STATE')
 
-grammar.add_rule('STATE', 's',                 None,      10.0)
-grammar.add_rule('STATE', '%s.choose_items()', ['STATE'], 1.0)
-grammar.add_rule('STATE', '%s.pick_smaller()', ['STATE'], 1.0)
-grammar.add_rule('STATE', '%s.stack()',        ['STATE'], 1.0)
+grammar.add_rule('STATE', 's',                     None,      10.0)
+grammar.add_rule('STATE', '%s.choose_stack_as_base()',      ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.choose_cup_as_base()',      ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.choose_hand()',      ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.grasp()',            ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.stack_cups()',       ['STATE'], 1.0)
+grammar.add_rule('STATE', '%s.add_cup_to_stack()', ['STATE'], 1.0)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Cup
@@ -85,40 +92,64 @@ from copy import copy
 class WorldState(object):
     """Capture the world state. Most functions should return worldstates."""
     def __init__(self):
-        self.table =  { Stack([Cup(n)]) for n in xrange(10) }
-        self.attention1 = None
-        self.attention2 = None
+        self.table =  { Cup(n) for n in xrange(10) }
+        self.base = None
+        self.hand = None
+        self.holding = None
 
     def __str__(self):
         return '[%s, %s, %s]'  % (self.table, self.attention1, self.attention2)
 
-    def choose_items(self):
+    def choose_stack_as_base(self):
+        filtered_table = [x for x in self.table if isinstance(x,Stack)]
+        if filtered_table:
+            self.base = sample1(filtered_table)
+            return self
+        else:
+            raise WorldException
+        
+    def choose_cup_as_base(self):
+        filtered_table = [x for x in self.table if isinstance(x,Cup)]
+        if filtered_table:
+            self.base = sample1(filtered_table)
+            return self
+        else:
+            raise WorldException
+
+    def choose_hand(self):
         if self.table:
-            self.attention1 = sample1(self.table)
+            self.hand = sample1(self.table)
+            return self
         else:
             raise WorldException
-        new_table = copy(self.table)
-        new_table.remove(self.attention1)
-        if new_table:
-            self.attention2 = sample1(new_table)
+
+    def grasp(self):
+        if self.hand:
+            self.holding = self.hand
+            self.table.remove(self.hand)
+            self.hand = None
+            return self
         else:
             raise WorldException
-        return self
 
-    def pick_smaller(self):
-        if self.attention1 and self.attention2 and self.attention2.top.size >= self.attention1.bottom.size:
-            tmp = self.attention1
-            self.attention1 = self.attention2
-            self.attention2 = tmp
-        return self
+    def stack_cups(self):
+        if self.base and self.holding and isinstance(self.base,Cup) and isinstance(self.holding,Cup) and self.base.size <= self.holding.size and self.base != self.holding and self.base in self.table:
+            new_stack = Stack(parts=[self.base, self.holding])
+            self.table.remove(self.base)
+            self.holding = None
+            self.base = None
+            self.table.add(new_stack)
+            return self
+        else:
+            raise WorldException
 
-    def stack(self):
-        if self.attention1 and self.attention2 and self.attention1.top.size >= self.attention2.bottom.size:
-            self.table.remove(self.attention1)
-            self.table.remove(self.attention2)
-            self.table.add(Stack(parts=[self.attention1,self.attention2]))
-            self.attention1 = None
-            self.attention2 = None
+    def add_cup_to_stack(self):
+        if self.base and self.holding and isinstance(self.base,Stack) and isinstance(self.holding,Cup) and self.base.top.size <= self.holding.size and self.base != self.holding and self.base in self.table:
+            new_stack = Stack(parts=[self.base, self.holding])
+            self.table.remove(self.base)
+            self.holding = None
+            self.base = None
+            self.table.add(new_stack)
             return self
         else:
             raise WorldException
@@ -130,9 +161,11 @@ class WorldState(object):
 from math import log
 from LOTlib import break_ctrlc
 from LOTlib.Miscellaneous import Infinity, q, attrmem
-#from LOTlib.Hypotheses.RecursiveLOTHypothesis import RecursiveLOTHypothesis
 from LOTlib.Hypotheses.LOTHypothesis import LOTHypothesis
 from LOTlib.Eval import TooBigException, RecursionDepthException
+
+def get_height(x):
+    return x.height if isinstance(x,Stack) else 1
 
 class StackerHypothesis(LOTHypothesis):
 
@@ -153,7 +186,7 @@ class StackerHypothesis(LOTHypothesis):
         except WorldException:
             pass
 
-        return max([s.height for s in ws.table])
+        return max([get_height(s) for s in ws.table])
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Sampling
@@ -161,6 +194,10 @@ class StackerHypothesis(LOTHypothesis):
 
 from LOTlib.Inference.Samplers.MetropolisHastings import MHSampler
 
-# we use a low likelihood_temperature to count the data more by favoring higher likelihoods
-for h in break_ctrlc(MHSampler(StackerHypothesis(), [], steps=100000, skip=100, prior_temperature=1.0, likelihood_temperature=0.5)):
+for h in break_ctrlc(MHSampler(StackerHypothesis(),
+                               [],
+                               steps=100000,
+                               skip=100,
+                               prior_temperature=1.0,
+                               likelihood_temperature=0.01)): # low temp favors higher likelihood
     print h.posterior_score, h.prior, h.likelihood, q(h)
