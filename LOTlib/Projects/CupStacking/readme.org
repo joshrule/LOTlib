@@ -14,6 +14,13 @@
 3. Model2.py - a stack model similar to Model0. This model is focused
    on capturing just the first stage we notice empirically - grabbing
    two objects and stacking them.
+4. Model2_1.py - a stack model similar to Model2. This model is
+   focused on capturing just the first stage we notice empirically -
+   grabbing two objects and stacking them. It differs from Model2 in
+   that it tries to decompose the act of stacking into enough pieces
+   that it shouldn't be easily repeatable in a search without
+   iteration.
+
 
 ** useful models
 
