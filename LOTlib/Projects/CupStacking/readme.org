@@ -27,6 +27,11 @@
    recursion. This preference would certainly show up if having 5
    2-high towers were better than just having 10 cups (which is
    clearly true!).
+6. Model3.py - a stack model similar to the Model2 family, but with
+   the goal of now capturing the first and second steps of the
+   Greenfield progression.
+7. Model3_1.py - a stack model similar to Model3, but now using a
+   lexicon to manage multiple pieces of potentially useful code.
 
 
 ** useful models
