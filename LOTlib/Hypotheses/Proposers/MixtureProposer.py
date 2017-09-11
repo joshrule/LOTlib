@@ -1,57 +1,52 @@
-"""
-    A mixture proposal - given a weighted list of other proposal
-    methods, create a proposal which uses these as subproposals in
-    proportion to their weight.
+from itertools import izip
+from scipy.misc import logsumexp
+from numpy.random import choice
+from numpy import log
 
-    NOTE: ONLY ERGODIC IF MIXTURE IS ERGODIC!
-"""
+from LOTlib.Hypotheses.Proposers.Proposer import Proposer
 
-from LOTlib.Hypotheses.Proposers.Proposer import *
-from LOTlib.Miscellaneous import lambdaOne, logsumexp, nicelog, self_update, weighted_sample
+
+def propose_value_maker(proposal_fns, weights):
+    def propose_value(value, **kwargs):
+        """sample a sub-proposer and propose from it"""
+        p = proposal_fns[choice(len(proposal_fns), p=weights)][0]
+        return p(value, **kwargs)
+    return propose_value
+
+
+def give_proposal_log_p_maker(proposal_fns, weights):
+    def give_proposal_log_p(old, new, **kwargs):
+        """prob. of generating new from old, adjusted for weight"""
+        ps = []
+        for p, w in izip(proposal_fns, weights):
+            log_p = p[1](old, new, **kwargs)
+            ps += [log_p + log(w)]
+            # print p[1].__name__, '->', log_p
+        return logsumexp(ps)
+        # return logsumexp([p[1](old, new, **kwargs) + log(w)
+        #                   for p, w in izip(proposal_fns, weights)])
+    return give_proposal_log_p
+
 
 class MixtureProposer(Proposer):
-    def __init__(self,proposers=[],proposer_weights=[],**kwargs):
-        assert len(proposers) == len(proposer_weights) , "MixtureProposer.py >> __init__: different number of proposals and weights!"
-        self_update(self,locals())
-        Proposer.__init__(self,**kwargs)
+    """
+            A mixture proposal (ONLY ERGODIC IF MIXTURE IS ERGODIC!)
 
-    def propose_tree(self,grammar,tree,resampleProbability=lambdaOne):
-        """ sample a sub-proposer and propose from it """
-        chosen_proposer = weighted_sample(self.proposers, probs=self.proposer_weights)
-        return chosen_proposer.propose_tree(grammar,tree,resampleProbability)
-
-    def compute_proposal_probability(self,grammar, t1, t2, resampleProbability=lambdaOne, **kwargs):
+    Given a weighted list of proposal methods, create a proposal using
+            these as subproposals in proportion to their weight.
+            """
+    def __init__(self, proposal_fns=[], weights=[], **kwargs):
         """
-            sum over all possible ways of generating t2 from t1 over all
-            proposers, adjusted for their weight
+        Create a MixtureProposer
+
+        Args:
+          proposal_fns: a list of N (propose_value, give_proposal_log_p) pairs
+          weights: a list of N floats, the weights of the proposers
         """
-        lps = []
-        for idx,proposer in enumerate(self.proposers):
-            lp = proposer.compute_proposal_probability(grammar,t1,t2,
-                                                       resampleProbability=resampleProbability,
-                                                       **kwargs)
-            lw = nicelog(self.proposer_weights[idx])
-            lps += [lw+lp]
-        return logsumexp(lps)
+        if len(proposal_fns) != len(weights):
+            raise ValueError('MixtureProposer: weights don\'t match proposers')
 
-if __name__ == "__main__": # test code
-    from LOTlib.Examples.Magnetism.Simple import grammar, make_data
-    from LOTlib.Hypotheses.LOTHypothesis import LOTHypothesis
-    from LOTlib.Hypotheses.Likelihoods.BinaryLikelihood import BinaryLikelihood
-    from LOTlib.Hypotheses.Proposers.RegenerationProposal import RegenerationProposer
-    from LOTlib.Hypotheses.Proposers.CopyProposal import CopyProposer
-    from LOTlib.Inference.Samplers.StandardSample import standard_sample
-
-    class CRHypothesis(BinaryLikelihood, MixtureProposer, LOTHypothesis):
-        """
-        A recursive LOT hypothesis that computes its (pseudo)likelihood using a string edit
-        distance
-        """
-        def __init__(self, *args, **kwargs ):
-            LOTHypothesis.__init__(self, grammar, display='lambda x,y: %s', **kwargs)
-            super(CRHypothesis, self).__init__(*args, **kwargs)
-
-    def make_hypothesis(**kwargs):
-        return CRHypothesis(proposers=[RegenerationProposer(),CopyProposer()],proposer_weights=[1.0,1.0],**kwargs)
-
-    standard_sample(make_hypothesis, make_data, save_top=False)
+        self.propose_value = propose_value_maker(proposal_fns, weights)
+        self.give_proposal_log_p = give_proposal_log_p_maker(proposal_fns,
+                                                             weights)
+        super(MixtureProposer, self).__init__(**kwargs)
