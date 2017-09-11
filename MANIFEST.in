@@ -1,0 +1,10 @@
+# include the readme, license, and major changes
+include README.md
+include LICENSE
+include MAJOR-CHANGES.txt
+
+# include the testing script
+include Test.sh
+
+# include the documentation
+include-recursive Documentation *
