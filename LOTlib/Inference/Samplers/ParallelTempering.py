@@ -1,7 +1,7 @@
 from random import randint
 
 from LOTlib.Miscellaneous import Infinity
-from LOTlib.Inference.MHShared import MH_acceptance
+from LOTlib.Inference.Samplers.Sampler import MH_acceptance
 from LOTlib.Inference.Samplers.MultipleChainMCMC import MultipleChainMCMC
 
 
