@@ -102,21 +102,28 @@ class InverseLogSchedule(AnnealingSchedule):
 from LOTlib.Inference.Samplers.MetropolisHastings import MHSampler
 
 class AnnealedMHSampler(MHSampler):
-    def __init__(self, h0, data, prior_schedule=None, likelihood_schedule=None, **kwargs):
+    def __init__(self, h0, data,
+                 prior_schedule=None,
+                 likelihood_schedule=None,
+                 acceptance_schedule=None,
+                 **kwargs):
         MHSampler.__init__(self, h0, data, **kwargs)
 
         if prior_schedule is None:
             prior_schedule = ConstantSchedule(1.0)
         if likelihood_schedule is None:
             likelihood_schedule = ConstantSchedule(1.0)
+        if acceptance_schedule is None:
+            acceptance_schedule = ConstantSchedule(1.0)
 
         self.prior_schedule = prior_schedule
         self.likelihood_schedule = likelihood_schedule
+        self.acceptance_schedule = acceptance_schedule
 
     def next(self):
         # Just set the temperatures by the schedules
         self.prior_temperature      = self.prior_schedule.next()
         self.likelihood_temperature = self.likelihood_schedule.next()
+        self.acceptance_temperature = self.acceptance_schedule.next()
 
         return MHSampler.next(self)
-
