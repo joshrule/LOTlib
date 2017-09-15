@@ -1,129 +1,53 @@
 """
-
-    Annealing for MH sampler, with various schedules
-
+Metropolis-Hastings with simulated annealing
 """
-from math import sin, pi, log, pow, exp
-from LOTlib.Miscellaneous import self_update
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-## Set up some schedule classes for how temp varies
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import LOTlib.Inference.Samplers.AnnealingSchedule as AS
+import LOTlib.Inference.Samplers.MetropolisHastings as MH
 
-class AnnealingSchedule:
+
+class AnnealedMHSampler(MH.MHSampler):
     """
-    A class to represent an annealing schedule. Should be subclassed.
-    NOTE: "skip" steps are all run at the same temperature!
+    A Metropolis-Hasting sampler with simulated annealing.
+
+    Simulated annealing works here by adjusting the temperature of either the
+    chain itself or the temperature of the hypothesis according to a schedule.
+
+    Parameters
+    ----------
+    h0 : LOTlib.Hypotheses.Hypothesis
+        the initial hypothesis
+    data : list of data
+        the data from which to learn
+    what : {'chain', 'hypothesis'}
+        what is being annealed, the chain or the hypothesis
+    schedule : LOTlib.Inference.Samplers.AnnealingSchedule, optional
+        the schedule according to which the temperature is annealed
+        (default: constant schedule of 1.0)
+    **kwargs :
+        additional args for the underlying MHSampler
     """
-    def __init__(self):
-        raise NotImplementedError
 
-    def __iter__(self):
-        return self
-
-
-class ConstantSchedule(AnnealingSchedule):
-    def __init__(self, k):
-        self.k = k
+    def __init__(self, h0, data, what='chain', schedule=None, **kwargs):
+        self.what = what
+        if schedule is not None:
+            self.schedule = schedule
+        else:
+            self.schedule = AS.ConstantSchedule(1.0)
+        super(AnnealedMHSampler, self).__init__(h0, data, **kwargs)
 
     def next(self):
-        return self.k
+        """
+        generate a new sample
 
-class InverseSchedule(AnnealingSchedule):
-    """
-    Temperature = max/(scale*time)
-    """
-    def __init__(self, max, scale):
-        self_update(self, locals())
-        self.ticks = 0
-
-    def next(self):
-        self.ticks += 1
-        return self.max / (self.scale*self.ticks)
-
-class ExponentialSchedule(AnnealingSchedule):
-    """
-    Temperature = c * alpha^t
-    """
-    def __init__(self, c, alpha):
-        self_update(self, locals())
-        self.ticks = 0
-
-    def next(self):
-        self.ticks += 1
-        return self.c * pow(self.alpha, self.ticks)
-
-class SinSchedule(AnnealingSchedule):
-    """
-    Let's go crazy -- search at various temperatures
-    Temperature = min + (max-min)*sin(2*pi*time/period)
-    """
-    def __init__(self, min, max, period):
-        assert max>min
-        assert period > 0.
-        self_update(self, locals())
-        self.ticks = 0 # how many times have we called next?
-
-    def next(self):
-        self.ticks += 1
-        return self.min + (self.max-self.min) * (1. + sin(self.ticks * 2 * pi / self.period))/2.
-
-class LogSinSchedule(SinSchedule):
-    """
-    Let's go crazy -- search at various temperatures -- on a log ladder
-    Temperature = min + (max-min)*sin(2*pi*time/period)
-    """
-    def __init__(self, min, max, period):
-        SinSchedule.__init__(self, log(min), log(max), period)
-
-    def next(self):
-        return exp(SinSchedule.next(self))
-
-
-class InverseLogSchedule(AnnealingSchedule):
-    """
-    Annealing schedule via c/log(1+t).
-    NOTE: *Very* slow to anneal.
-    In a slightly different context, the condition on c is that it is greater than or equal to the depth of the greatest local minimum
-    See: Cooling Schedules for Optimal Annealing, Mathematics of Operations Research, 1988
-    """
-    def __init__(self, c):
-        assert c >= 0
-        self.c = c
-        self.ticks = 0
-
-    def next(self):
-        self.ticks += 1
-        return self.c / log(1.+self.ticks)
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-## An annealed MH sampler
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-from LOTlib.Inference.Samplers.MetropolisHastings import MHSampler
-
-class AnnealedMHSampler(MHSampler):
-    def __init__(self, h0, data,
-                 prior_schedule=None,
-                 likelihood_schedule=None,
-                 acceptance_schedule=None,
-                 **kwargs):
-        MHSampler.__init__(self, h0, data, **kwargs)
-
-        if prior_schedule is None:
-            prior_schedule = ConstantSchedule(1.0)
-        if likelihood_schedule is None:
-            likelihood_schedule = ConstantSchedule(1.0)
-        if acceptance_schedule is None:
-            acceptance_schedule = ConstantSchedule(1.0)
-
-        self.prior_schedule = prior_schedule
-        self.likelihood_schedule = likelihood_schedule
-        self.acceptance_schedule = acceptance_schedule
-
-    def next(self):
-        # Just set the temperatures by the schedules
-        self.prior_temperature      = self.prior_schedule.next()
-        self.likelihood_temperature = self.likelihood_schedule.next()
-        self.acceptance_temperature = self.acceptance_schedule.next()
-
-        return MHSampler.next(self)
+        Returns
+        -------
+        LOTlib.Hypotheses.Hypothesis
+            the current sample (a new one if accepted else the old one)
+        """
+        # update the temperature according to the schedule
+        if self.what == 'hypothesis':
+            self.current_sample.temperature = self.schedule.next()
+        else:
+            self.temperature = self.schedule.next()
+        # and generate a new sample
+        return MH.MHSampler.next(self)
