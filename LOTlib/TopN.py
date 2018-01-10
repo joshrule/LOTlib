@@ -39,16 +39,17 @@ class TopN(object):
     def __len__(self):
         return len(self.Q)
 
-    def add(self, x, p=None):
-        # print [h for h in self]
-
+    def add(self, x, p=None, val=False):
         if p is None:
             p = getattr(x, self.key)
 
-        # Add if we are too short or our priority is better than the *worst*
-        # AND we aren't in the set
-        if (len(self.Q) < self.N or p > self.Q[0].priority) \
-           and x not in self.unique_set:
+        if val:
+            okay = not any(x.value == u.value for u in self.unique_set)
+        else:
+            okay = x not in self.unique_set
+
+        # if (too short or priority is better than the *worst*) AND not in set
+        if (len(self.Q) < self.N or p > self.Q[0].priority) and okay:
 
             l = len(self.Q)
             assert l <= self.N
