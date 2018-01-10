@@ -9,32 +9,20 @@ class Proposer(object):
 
     Assumes:
       propose_value(v): a function, giving a newly proposed value v' from v
-      give_proposal_log_p(v,v'): a function, gives the probability of
-          proposing v' from v
+      give_proposal_log_fb(v,v'): a function, gives the forward-backward
+          probability: p(v'|v)/p(v|v')
     """
-    def propose(self, ret='both', newVal=None, **kwargs):
+    def propose(self, **kwargs):
         """generate a proposal and compute its probability"""
-        while newVal is None:
+        while True:
             try:
                 newVal = self.propose_value(self.value, **kwargs)
+                break
             except ProposalFailedException:
                 pass
 
         hypothesis = self.__copy__(value=newVal)
 
-        # the return value depends on 'ret'
-        if ret == 'value':
-            return hypothesis
-        else:
-            logp = self.give_proposal_log_p(self.value, newVal, **kwargs)
-            if ret == 'logp':
-                return logp
-            else:
-                fb = logp - \
-                     self.give_proposal_log_p(newVal, self.value, **kwargs)
-                if ret == 'fb':
-                    return fb
-                elif ret == 'both':
-                    return hypothesis, fb
-                else:
-                    return fb, hypothesis, logp
+        fb = self.give_proposal_log_fb(self.value, newVal, **kwargs)
+
+        return hypothesis, fb

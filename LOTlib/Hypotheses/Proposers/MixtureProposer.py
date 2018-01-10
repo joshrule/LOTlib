@@ -1,4 +1,4 @@
-from itertools import izip
+import itertools as itools
 from scipy.misc import logsumexp
 from numpy.random import choice
 from numpy import log
@@ -14,39 +14,36 @@ def propose_value_maker(proposal_fns, weights):
     return propose_value
 
 
-def give_proposal_log_p_maker(proposal_fns, weights):
-    def give_proposal_log_p(old, new, **kwargs):
-        """prob. of generating new from old, adjusted for weight"""
-        ps = []
-        for p, w in izip(proposal_fns, weights):
-            log_p = p[1](old, new, **kwargs)
-            ps += [log_p + log(w)]
-            # print p[1].__name__, '->', log_p
-        return logsumexp(ps)
-        # return logsumexp([p[1](old, new, **kwargs) + log(w)
-        #                   for p, w in izip(proposal_fns, weights)])
-    return give_proposal_log_p
+def give_proposal_log_fb_maker(proposal_fns, weights):
+    def give_proposal_log_fb(old, new, **kwargs):
+        """forward-backward probability, adjusted for weight"""
+        fs = []
+        bs = []
+        for p, w in itools.izip(proposal_fns, weights):
+            f, b = p[1](old, new, **kwargs)
+            fs.append(f + log(w))
+            bs.append(b + log(w))
+            print p[1].__name__, '->', (f, b)
+        return logsumexp(fs) - logsumexp(bs)
+    return give_proposal_log_fb
 
 
 class MixtureProposer(Proposer):
     """
-            A mixture proposal (ONLY ERGODIC IF MIXTURE IS ERGODIC!)
+    A mixture proposal (ONLY ERGODIC IF MIXTURE IS ERGODIC!)
 
-    Given a weighted list of proposal methods, create a proposal using
-            these as subproposals in proportion to their weight.
-            """
+    Given a weighted list of proposal methods, create a proposal using them as
+    subproposals in proportion to their weight.
+
+    Args:
+      proposal_fns: a list of N (propose_value, give_proposal_log_p) pairs
+      weights: a list of N floats, the weights of the proposers
+    """
     def __init__(self, proposal_fns=[], weights=[], **kwargs):
-        """
-        Create a MixtureProposer
-
-        Args:
-          proposal_fns: a list of N (propose_value, give_proposal_log_p) pairs
-          weights: a list of N floats, the weights of the proposers
-        """
         if len(proposal_fns) != len(weights):
             raise ValueError('MixtureProposer: weights don\'t match proposers')
 
         self.propose_value = propose_value_maker(proposal_fns, weights)
-        self.give_proposal_log_p = give_proposal_log_p_maker(proposal_fns,
-                                                             weights)
+        self.give_proposal_log_fb = give_proposal_log_fb_maker(proposal_fns,
+                                                               weights)
         super(MixtureProposer, self).__init__(**kwargs)
