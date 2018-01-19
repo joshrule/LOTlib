@@ -23,7 +23,7 @@ def give_proposal_log_fb_maker(proposal_fns, weights):
             f, b = p[1](old, new, **kwargs)
             fs.append(f + log(w))
             bs.append(b + log(w))
-            print p[1].__name__, '->', (f, b)
+            # print p[1].__name__, '->', (f, b)
         return logsumexp(fs) - logsumexp(bs)
     return give_proposal_log_fb
 
