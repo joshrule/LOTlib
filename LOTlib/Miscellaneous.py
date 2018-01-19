@@ -596,9 +596,17 @@ def attrmem(aname):
     def wrap1(f):
 
         def wrap2(self, *args, **kwargs):
-            v = f(self, *args, **kwargs)
-            setattr(self, aname, v)
-            return v
+            vs = f(self, *args, **kwargs)
+            try:
+                for name, v in zip(aname, vs):
+                    setattr(self, name, v)
+                return vs
+            except TypeError:
+                setattr(self, aname, vs)
+                return vs
+            # v = f(self, *args, **kwargs)
+            # setattr(self, aname, v)
+            # return v
 
         return wrap2
 
