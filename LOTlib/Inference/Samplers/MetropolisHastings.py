@@ -133,6 +133,7 @@ class MHSampler(Sampler):
                 cur = self.current_sample.posterior_score
 
                 if self.trace:
+                    print "# FB: ", round(fb, 3)
                     print "# Current: ", round(cur, 3), self.current_sample
                     print "# Proposal:", round(prop, 3), self.proposal
                     print ""

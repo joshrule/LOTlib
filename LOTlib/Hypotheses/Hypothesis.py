@@ -86,7 +86,7 @@ class Hypothesis(object):
         raise NotImplementedError
 
     # And the main likelihood function just maps compute_single_likelihood over the data
-    @attrmem('likelihood')
+    @attrmem(['likelihood', 'real_likelihood'])
     def compute_likelihood(self, data, shortcut=-Infinity, **kwargs):
         """Compute the likelihood of the iterable of data.
 
@@ -98,13 +98,16 @@ class Hypothesis(object):
         """
 
         ll = 0.0
+        rl = 0.0
         for datum in data:
-            ll += self.compute_single_likelihood(datum, **kwargs) / self.likelihood_temperature
+            fll, rll = self.compute_single_likelihood(datum, **kwargs)
+            ll += fll / self.likelihood_temperature
+            rl += rll / self.likelihood_temperature
             if ll < shortcut:
                 # print "** Shortcut", self
                 return -Infinity
 
-        return ll
+        return ll, rl
 
     def compute_predictive_likelihood(self, data, include_last=False, **kwargs):
         """
@@ -133,21 +136,22 @@ class Hypothesis(object):
         """
         raise NotImplementedError
 
-    @attrmem('posterior_score')
+    @attrmem(['posterior_score', 'real_posterior'])
     def compute_posterior(self, d, **kwargs):
         """Computes the posterior score by computing the prior and likelihood scores.
         Defaultly if the prior is -inf, we don't compute the likelihood (and "pretend" it's -Infinity).
         This saves us from computing likelihoods on hypotheses that we know are bad.
         """
 
-        p = self.compute_prior()
-        
+        p, rp = self.compute_prior()
+
         if p > -Infinity:
-            l = self.compute_likelihood(d, **kwargs)
-            return p + l
+            l, rl = self.compute_likelihood(d, **kwargs)
+            return (p + l), (rp + rl)
         else:
-            self.likelhood = None # We haven't computed this
-            return -Infinity
+            self.likelhood = None  # We haven't computed this
+            self.real_likelihood = None
+            return -Infinity, -Infinity
 
     def update_posterior(self):
         """So we can save on space when writing this out in every hypothesis."""
