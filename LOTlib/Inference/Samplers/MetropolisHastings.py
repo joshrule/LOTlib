@@ -134,9 +134,11 @@ class MHSampler(Sampler):
 
                 if self.trace:
                     print "# FB: ", round(fb, 3)
-                    print "# Current: ", round(cur, 3), self.current_sample
-                    print "# Proposal:", round(prop, 3), self.proposal
-                    print ""
+                    print "# Current: ", round(cur, 3),
+                    print str(self.current_sample).replace('\n', '\n# ')
+                    print "# Proposal:", round(prop, 3),
+                    print str(self.proposal).replace('\n', '\n# ')
+                    print
 
                 if MH_acceptance(cur, prop, fb, temperature=self.temperature):
                     self.current_sample = self.proposal
